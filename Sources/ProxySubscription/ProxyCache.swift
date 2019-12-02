@@ -6,12 +6,19 @@ import ProxyUtility
 import ShadowsocksProtocol
 import SurgeSupport
 import MaxMindDB
+import URLFileManager
+import KwiftExtension
 
-public enum ProxyCacheStatus: String, Codable {
+public enum ProxyCacheStatus {
     case local
-    case failed
+    case failed(ProxyCacheError)
     case same
     case new
+}
+
+public enum ProxyCacheError: Error {
+    case network(URLError)
+    case noneNodes
 }
 
 public struct ProxySubscriptionConfiguration: Codable {
@@ -29,27 +36,78 @@ public struct ProxySubscriptionConfiguration: Codable {
     }
 }
 
-public enum ProxySubscriptionType: String, Codable {
+public enum ProxySubscriptionType: String, Codable, CaseIterable {
     case surge
     case ssr
     case plain
     case ssd
     case vmess
+
+    public func decode(_ data: Data, mmdb: MaxMindDB?) -> [Proxy] {
+        switch self {
+        case .plain:
+            return ProxyURIParser.parse(subsription: data).map{Proxy(config: $0, mmdb: mmdb)}
+        case .ssd:
+            let str = String.init(decoding: data, as: UTF8.self)
+            guard str.hasPrefix("ssd://") else {
+                return []
+            }
+
+            let encoded = String(str.dropFirst(6))
+            guard let decoded = encoded.base64URLDecoded else {
+                return []
+            }
+
+            let newdata = decoded.data(using: .utf8)!
+            guard let ssd = try? JSONDecoder.init().decode(SSD.self, from: newdata) else {
+                return []
+            }
+            //        dump(ssd)
+            return ssd.configs.map { Proxy.init(config: .ss($0)) }
+        case .ssr:
+            return ProxyURIParser.parse(subsription: data).compactMap { (p) -> Proxy? in
+                switch p {
+                case .ssr(var v):
+//                    v.id = "\(configuration.name)_\(v.id)"
+                    return .init(config: .ssr(v))
+                default: return nil
+                }
+            }
+        case .surge:
+            let confString = String(data: data, encoding: .utf8)!
+            let lines = confString.split(separator: "\n").filter { !$0.isEmpty }
+            return lines.compactMap { (str) -> Proxy? in
+                guard var p = SurgeShadowsocksProxy(String(str)) else {
+                    return nil
+                }
+//                p.id = "\(configuration.name)_\(p.id)"
+                return .init(config: .ss(p.ssconf))
+            }
+        case .vmess:
+            return ProxyURIParser.parse(subsription: data).compactMap { (p) -> Proxy? in
+                switch p {
+                case .vmess(var v):
+                    v.id = v._value.ps
+//                    "\(configuration.name)_\(v._value.ps)"
+                    return .init(v)
+                default: return nil
+                }
+            }
+        }
+    }
 }
 
 public final class ProxySubscriptionCache: ProxyProvidable {
-
     public let configuration: ProxySubscriptionConfiguration
-
     public let cachePath: URL
-    
     public let mmdb: MaxMindDB?
+    private let session: URLSession
 
     #if canImport(Kojirobot)
     let robot: Kojirobot?
     #endif
 
-    private static let updateQueue = DispatchQueue(label: "ProxyCache-Update")
+    private static let updateQueue = DispatchQueue(label: "ProxySubscriptionCache")
 
     public private(set) var proxies: [Proxy] {
         didSet {
@@ -74,12 +132,15 @@ public final class ProxySubscriptionCache: ProxyProvidable {
 
     public private(set) var status: ProxyCacheStatus
 
-    public init(_ configuration: ProxySubscriptionConfiguration, enableNotification: Bool, rootCacheDirectory: URL, mmdb: MaxMindDB?) {
+    public init(_ configuration: ProxySubscriptionConfiguration, enableNotification: Bool, rootCacheDirectory: URL, mmdb: MaxMindDB?, session: URLSession) {
         let cachePath = rootCacheDirectory.appendingPathComponent(configuration.name.safeFilename())
-        if FileManager.default.fileExists(atPath: cachePath.path) {
+        if URLFileManager.default.fileExistance(at: cachePath).exists {
             do {
-                let cacheData = try Data(contentsOf: cachePath)
-                proxies = ProxyURIParser.parse(subsription: cacheData).map{Proxy(config: $0, mmdb: mmdb)}
+                let cacheData = try autoreleasepool {
+                    try Data(contentsOf: cachePath, options: .uncached)
+                }
+                proxies = ProxyURIParser.parse(subsription: cacheData)
+                            .map{Proxy(config: $0, mmdb: mmdb)}
             } catch {
                 fatalError(error.localizedDescription)
             }
@@ -89,6 +150,7 @@ public final class ProxySubscriptionCache: ProxyProvidable {
         self.configuration = configuration
         self.cachePath = cachePath
         self.mmdb = mmdb
+        self.session = session
         status = .local
         #if canImport(Kojirobot)
         if enableNotification, let notify = configuration.notify {
@@ -97,173 +159,35 @@ public final class ProxySubscriptionCache: ProxyProvidable {
             robot = nil
         }
         #endif
-        update()
+        startUpdate()
     }
 
-    func checkEqual(_ l: [ShadowsocksProtocol], _ r: [ShadowsocksProtocol]) -> Bool {
-        guard l.count == r.count else {
-            return false
-        }
-        for index in 0 ..< l.count {
-            if index == 0 {} else if l[index].uri != r[index].uri {
-                return false
-            }
-        }
-        return true
-    }
-
-//    private let lock = NSLock()
-    
-    private func update() {
-//        lock.lock()
-//        Log.info("Start updating cache for \(id).")
-
-        do {
-            let new = try Data(contentsOf: configuration.url)
-            let newP = serialize(new)
-            if newP.count > 0 {
-                if newP == proxies {
-//                    Log.info("Updating cache for \(id) result: same.")
-                    status = .same
-                } else {
-//                    Log.info("Updating cache for \(id) result: success.")
-                    proxies = newP
-                    status = .new
-                }
+    public func startUpdate() {
+        let updateResult = session.syncResultTask(request: .init(url: configuration.url))
+        switch updateResult {
+        case .failure(let e):
+            self.status = .failed(.network(e))
+        case .success(let r):
+            let newNodes = self.configuration.type.decode(r.data, mmdb: self.mmdb)
+            if newNodes.isEmpty {
+                status = .failed(.noneNodes)
             } else {
-//                Log.info("Updating cache for \(id) result: none proxy.")
-                status = .failed
+                if newNodes == proxies {
+                    self.status = .same
+                } else {
+                    self.proxies = newNodes
+                    self.status = .same
+                }
             }
-        } catch {
-//            Log.info("Update cache for \(id) error: \(error.localizedDescription).")
-            status = .failed
         }
-//        lock.unlock()
-        Self.updateQueue.asyncAfter(deadline: .now() + 3600, execute: update)
+        Self.updateQueue.asyncAfter(deadline: .now() + 3600, execute: startUpdate)
+//Log.info("Updating cache for \(id) result: same.")
+//Log.info("Updating cache for \(id) result: success.")
+//Log.info("Updating cache for \(id) result: none proxy.")
+//Log.info("Update cache for \(id) error: \(error.localizedDescription).")
     }
 
     deinit {}
 
-    public func serialize(_ data: Data) -> [Proxy] {
-        switch configuration.type {
-        case .plain:
-            return ProxyURIParser.parse(subsription: data).map{Proxy(config: $0, mmdb: self.mmdb)}
-        case .ssd:
-            let str = String.init(decoding: data, as: UTF8.self)
-                    guard str.hasPrefix("ssd://") else {
-                        return []
-                    }
-                    
-            let encoded = String(str.dropFirst(6))
-            guard let decoded = encoded.base64URLDecoded else {
-                return []
-            }
-            
-            let newdata = decoded.data(using: .utf8)!
-            guard let ssd = try? JSONDecoder.init().decode(SSD.self, from: newdata) else {
-                return []
-            }
-    //        dump(ssd)
-            return ssd.configs.map { Proxy.init(config: .ss($0)) }
-        case .ssr:
-            return ProxyURIParser.parse(subsription: data).compactMap { (p) -> Proxy? in
-                switch p {
-                case .ssr(var v):
-                    v.id = "\(configuration.name)_\(v.id)"
-                    return .init(config: .ssr(v))
-                default: return nil
-                }
-            }
-        case .surge:
-            let confString = String(data: data, encoding: .utf8)!
-            let lines = confString.split(separator: "\n").filter { !$0.isEmpty }
-            return lines.compactMap { (str) -> Proxy? in
-                guard var p = SurgeShadowsocksProxy(String(str)) else {
-                    return nil
-                }
-                p.id = "\(configuration.name)_\(p.id)"
-                return .init(config: .ss(p.ssconf))
-            }
-        case .vmess:
-            return ProxyURIParser.parse(subsription: data).compactMap { (p) -> Proxy? in
-                switch p {
-                case .vmess(var v):
-                    v.id = "\(configuration.name)_\(v._value.ps)"
-                    return .init(v)
-                default: return nil
-                }
-            }
-        }
-    }
     
-    struct SSD: Codable {
-        
-        var port: Int
-        
-        struct Server: Codable {
-            
-            var remarks: String
-            
-            var id: Int
-            
-            var ratio: Double
-            
-            var server: String
-            
-            private enum CodingKeys: String, CodingKey {
-                case id
-                case remarks
-                case ratio
-                case server
-            }
-            
-        }
-        
-        var servers: [Server]
-        
-        var expiry: String
-        
-        var encryption: ShadowsocksEnryptMethod
-        
-        var plugin: String
-        
-        var airport: String
-        
-        var trafficUsed: Double
-        
-        var pluginOptions: String
-        
-        var url: String
-        
-        var password: String
-        
-        var trafficTotal: Double
-        
-        private enum CodingKeys: String, CodingKey {
-            case password
-            case trafficTotal = "traffic_total"
-            case expiry
-            case airport
-            case trafficUsed = "traffic_used"
-            case servers
-            case url
-            case encryption
-            case port
-            case plugin
-            case pluginOptions = "plugin_options"
-        }
-        
-        var configs: [ShadowsocksConfig] {
-            if let plugin = ShadowsocksPlugin.init(type: .local, plugin: plugin, pluginOpts: pluginOptions) {
-                return servers.map({ (server) -> ShadowsocksConfig in
-                    return ShadowsocksConfig.local(id: "\(airport)_\(server.remarks)", server: server.server, serverPort: port, password: password, method: encryption, plugin: plugin)
-                })
-            } else {
-                print("Unsupported ss plugin: \(plugin), opts: \(pluginOptions)")
-                return []
-            }
-            
-        }
-        
-    }
 }

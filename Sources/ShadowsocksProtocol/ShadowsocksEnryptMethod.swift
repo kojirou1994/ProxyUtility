@@ -18,6 +18,7 @@ public enum ShadowsocksEnryptMethod: String, Codable, CaseIterable, CustomString
     case salsa20 = "salsa20"
     case chacha20 = "chacha20"
     case chacha20_ietf = "chacha20-ietf"
+    case none
     
     public var description: String {
         return rawValue

@@ -62,7 +62,8 @@ let package = Package(
             name: "ProxySubscription",
             dependencies: [
                 "ProxyUtility",
-                "SurgeSupport"
+                "SurgeSupport",
+                "URLFileManager"
             ]
         ),
         .target(
@@ -79,6 +80,6 @@ let package = Package(
         ),
         .testTarget(
             name: "ProxyUtilityTests",
-            dependencies: ["ProxyUtility"]),
+            dependencies: ["ProxyUtility", "ProxySubscription"]),
     ]
 )

@@ -116,9 +116,9 @@ public struct Rule: LosslessStringConvertible {
         self.policy = policy.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    public let type: RuleType
-    public let matcher: String
-    public let policy: String
+    public var type: RuleType
+    public var matcher: String
+    public var policy: String
 
 }
 

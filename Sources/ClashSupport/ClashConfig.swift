@@ -92,12 +92,12 @@ public struct ClashConfig: Codable {
     public let dns: ClashDNS?
     
     public struct ClashDNS: Codable {
-        public let enable: Bool
-        public let ipv6: Bool
-        public let listen: String?
+        public var enable: Bool
+        public var ipv6: Bool
+        public var listen: String?
         //        var enhancedMode
-        public let nameserver: [String]
-        public let fallback: [String]
+        public var nameserver: [String]
+        public var fallback: [String]
         
         public init(enable: Bool, ipv6: Bool, listen: String?,
                     nameserver: [String], fallback: [String]) {

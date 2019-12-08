@@ -80,6 +80,6 @@ let package = Package(
         ),
         .testTarget(
             name: "ProxyUtilityTests",
-            dependencies: ["ProxyUtility", "ProxySubscription"]),
+            dependencies: ["ProxyUtility", "ProxySubscription", "ProxyRule"]),
     ]
 )

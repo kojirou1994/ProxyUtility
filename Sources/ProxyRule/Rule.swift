@@ -63,33 +63,30 @@ public enum RuleType: String, CustomStringConvertible, CaseIterable {
     
 }
 
-
-
-public struct Rule: LosslessStringConvertible {
+public struct Rule: CustomStringConvertible {
     
-    public init?(_ description: String) {
-        let parts = description.split(separator: ",")
-        guard parts.count == 2 || parts.count == 3 else {
+    public static func parse(_ string: String, allowEmptyPolicy: Bool = false) -> Self? {
+        let parts = string.split(separator: ",", omittingEmptySubsequences: false)
+        guard (parts.count == 2 || parts.count == 3),
+            let type = RuleType(rawValue: String(parts[0])) else {
             return nil
         }
-        guard let type = RuleType.init(rawValue: String(parts[0])) else {
-            return nil
-        }
-        if parts.count == 2, type == .final, !parts[1].isEmpty {
-            self.type = type
-            self.matcher = ""
-            self.policy = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
-        } else if parts.count == 3, type == .final, parts[1].isEmpty, !parts[2].isEmpty {
-            self.type = type
-            self.matcher = ""
-            self.policy = parts[2].trimmingCharacters(in: .whitespacesAndNewlines)
-        } else if parts.count == 3, type != .final, !parts[1].isEmpty, !parts[2].isEmpty {
-            self.type = type
-            self.matcher = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
-            self.policy = parts[2].trimmingCharacters(in: .whitespacesAndNewlines)
+        let matcher: String
+        let policy: String
+        if type == .final {
+            matcher = .init()
+            policy = parts.last!.trimmingCharacters(in: .whitespacesAndNewlines)
         } else {
+            guard parts.count == 3 else {
+                return nil
+            }
+            matcher = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+            policy = parts[2].trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if !allowEmptyPolicy, policy.isEmpty {
             return nil
         }
+        return .init(type: type, matcher: matcher, policy: policy)
     }
     
     public var description: String {
@@ -112,8 +109,8 @@ public struct Rule: LosslessStringConvertible {
     /// this init method will not check if matcher is empty string
     public init(type: RuleType, matcher: String, policy: String) {
         self.type = type
-        self.matcher = matcher.trimmingCharacters(in: .whitespacesAndNewlines)
-        self.policy = policy.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.matcher = matcher
+        self.policy = policy
     }
     
     public var type: RuleType
@@ -143,10 +140,10 @@ public class RuleManager {
     IP-CIDR,123.125.117.0/22,REJECT,no-resolve
     IP-CIDR,61.160.200.252/32,REJECT,no-resolve
     GEOIP,CN,DIRECT
-    """.components(separatedBy: "\n").compactMap{ Rule.init($0) }
+    """.components(separatedBy: "\n").compactMap{ Rule.parse($0) }
     
     private func readRules(_ filename: String) -> [Rule] {
-        return (try? String.init(contentsOfFile: filename).components(separatedBy: .newlines).compactMap{ Rule.init($0) }) ?? []
+        return (try? String.init(contentsOfFile: filename).components(separatedBy: .newlines).compactMap{ Rule.parse($0) }) ?? []
     }
     
     public var selectPolicies: [String] {

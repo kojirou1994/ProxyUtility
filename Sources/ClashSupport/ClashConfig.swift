@@ -2,7 +2,7 @@ import Foundation
 
 public struct ClashConfig: Codable {
     
-    public struct ProxyGroup: Codable {
+    public struct ProxyGroup: Codable, Equatable {
         
         public var url: String?
         
@@ -59,7 +59,7 @@ public struct ClashConfig: Codable {
     
     public var experimental: Experimantal?
     
-    public struct Experimantal: Codable {
+    public struct Experimantal: Codable, Equatable {
         public let ignoreResolveFail: Bool
         private enum CodingKeys: String, CodingKey {
             case ignoreResolveFail = "ignore-resolve-fail"
@@ -68,7 +68,7 @@ public struct ClashConfig: Codable {
 
     public var authentication: [Authentication]?
     
-    public struct Authentication: Codable {
+    public struct Authentication: Codable, Equatable {
         public let username: String
         public let password: String
 
@@ -91,7 +91,7 @@ public struct ClashConfig: Codable {
     
     public let dns: ClashDNS?
     
-    public struct ClashDNS: Codable {
+    public struct ClashDNS: Codable, Equatable {
         public var enable: Bool
         public var ipv6: Bool
         public var listen: String?
@@ -119,13 +119,13 @@ public struct ClashConfig: Codable {
     
     public var mode: Mode
     
-    public enum Mode: String, Codable, CaseIterable {
+    public enum Mode: String, Codable, CaseIterable, Equatable {
         case rule = "Rule"
         case global = "Global"
         case direct = "Direct"
     }
     
-    public enum LogLevel: String, Codable, CaseIterable {
+    public enum LogLevel: String, Codable, CaseIterable, Equatable {
         case info
         case warning
         case error

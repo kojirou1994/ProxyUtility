@@ -43,10 +43,10 @@ public enum ProxySubscriptionType: String, Codable, CaseIterable {
     case ssd
     case vmess
 
-    public func decode(_ data: Data, mmdb: MaxMindDB?) -> [Proxy] {
+    public func decode(_ data: Data) -> [ProxyConfig] {
         switch self {
         case .plain:
-            return ProxyURIParser.parse(subsription: data).map{Proxy(config: $0, mmdb: mmdb)}
+            return ProxyURIParser.parse(subsription: data)
         case .ssd:
             let str = String.init(decoding: data, as: UTF8.self)
             guard str.hasPrefix("ssd://") else {
@@ -63,36 +63,38 @@ public enum ProxySubscriptionType: String, Codable, CaseIterable {
                 return []
             }
             //        dump(ssd)
-            return ssd.configs.map { Proxy.init(config: .ss($0)) }
+            return ssd.configs.map {ProxyConfig.ss($0)}
         case .ssr:
-            return ProxyURIParser.parse(subsription: data).compactMap { (p) -> Proxy? in
-                switch p {
-                case .ssr(var v):
-//                    v.id = "\(configuration.name)_\(v.id)"
-                    return .init(config: .ssr(v))
-                default: return nil
-                }
-            }
+            return ProxyURIParser.parse(subsription: data)
+//                .compactMap { (p) -> ProxyConfig? in
+//                switch p {
+//                case .ssr(var v):
+////                    v.id = "\(configuration.name)_\(v.id)"
+//                    return .ssr(v)
+//                default: return nil
+//                }
+//            }
         case .surge:
             let confString = String(data: data, encoding: .utf8)!
             let lines = confString.split(separator: "\n").filter { !$0.isEmpty }
-            return lines.compactMap { (str) -> Proxy? in
-                guard var p = SurgeShadowsocksProxy(String(str)) else {
+            return lines.compactMap { (str) -> ProxyConfig? in
+                guard let p = SurgeShadowsocksProxy(String(str)) else {
                     return nil
                 }
 //                p.id = "\(configuration.name)_\(p.id)"
-                return .init(config: .ss(p.ssconf))
+                return .ss(p.ssconf)
             }
         case .vmess:
-            return ProxyURIParser.parse(subsription: data).compactMap { (p) -> Proxy? in
-                switch p {
-                case .vmess(var v):
-                    v.id = v._value.ps
-//                    "\(configuration.name)_\(v._value.ps)"
-                    return .init(v)
-                default: return nil
-                }
-            }
+            return ProxyURIParser.parse(subsription: data)
+//                .compactMap { (p) -> Proxy? in
+//                switch p {
+//                case .vmess(var v):
+//                    v.id = v._value.ps
+////                    "\(configuration.name)_\(v._value.ps)"
+//                    return .init(v)
+//                default: return nil
+//                }
+//            }
         }
     }
 }
@@ -168,7 +170,8 @@ public final class ProxySubscriptionCache: ProxyProvidable {
         case .failure(let e):
             self.status = .failed(.network(e))
         case .success(let r):
-            let newNodes = self.configuration.type.decode(r.data, mmdb: self.mmdb)
+            let newNodes = self.configuration.type.decode(r.data)
+                .map {Proxy(config: $0, mmdb: self.mmdb)}
             if newNodes.isEmpty {
                 status = .failed(.noneNodes)
             } else {

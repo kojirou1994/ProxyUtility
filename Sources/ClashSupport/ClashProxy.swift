@@ -96,7 +96,7 @@ public enum ClashProxy: Codable {
     
     public struct ClashVMess: Codable {
         public var name: String
-        public  type: ProxyType = .vmess
+        public let type: ProxyType = .vmess
         public var server: String
         public var port: Int
         public var uuid: String

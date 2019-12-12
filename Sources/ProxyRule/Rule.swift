@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum RuleType: String, CustomStringConvertible, CaseIterable {
+public enum RuleType: String, CustomStringConvertible, CaseIterable, Codable {
     case domain = "DOMAIN"
     case domainSuffix = "DOMAIN-SUFFIX"
     case domainKeyword = "DOMAIN-KEYWORD"
@@ -63,7 +63,7 @@ public enum RuleType: String, CustomStringConvertible, CaseIterable {
     
 }
 
-public struct Rule: CustomStringConvertible {
+public struct Rule: CustomStringConvertible, Codable {
     
     public static func parse(_ string: String, allowEmptyPolicy: Bool = false) -> Self? {
         let parts = string.split(separator: ",", omittingEmptySubsequences: false)

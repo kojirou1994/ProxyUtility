@@ -95,18 +95,18 @@ public enum ClashProxy: Codable {
     }
     
     public struct ClashVMess: Codable {
-        let name: String
-        let type: ProxyType = .vmess
-        let server: String
-        let port: Int
-        let uuid: String
-        let alterId: Int
-        let cipher: VMessCipher
-        let tls: Bool
-        let skipCertVerify: Bool
+        public var name: String
+        public  type: ProxyType = .vmess
+        public var server: String
+        public var port: Int
+        public var uuid: String
+        public var alterId: Int
+        public var cipher: VMessCipher
+        public var tls: Bool
+        public var skipCertVerify: Bool
 //        let network: String
         
-        init(_ vmess: VMess) {
+        public init(_ vmess: VMess) {
             name = vmess._value.ps
             server = vmess._value.add
             port = Int(vmess._value.port)!
@@ -143,21 +143,21 @@ public enum ClashProxy: Codable {
             return ShadowsocksConfig.local(id: name, server: server, serverPort: port, password: password, method: cipher, plugin: plugin)
         }
         
-        let cipher: ShadowsocksEnryptMethod
+        public var cipher: ShadowsocksEnryptMethod
         
-        let plugin: ShadowsocksPlugin?
+        public var plugin: ShadowsocksPlugin?
 
-        let password: String
+        public var password: String
         
-        let server: String
+        public var server: String
         
-        let port: Int
+        public var port: Int
         
-        let type: ProxyType = .ss
+        public let type: ProxyType = .ss
         
-        var name: String
+        public var name: String
         
-        let udp: Bool
+        public var udp: Bool
         
         private enum CodingKeys: String, CodingKey {
             case password
@@ -238,14 +238,14 @@ public enum ClashProxy: Codable {
     }
 
     public struct Socks5: Codable {
-        let name: String
-        let type: ProxyType = .socks5
-        let server: String
-        let port: Int
-        let tls: Bool?
-        let username: String?
-        let password: String?
-        let skipCertVerify: Bool?
+        public var name: String
+        public let type: ProxyType = .socks5
+        public var server: String
+        public var port: Int
+        public var tls: Bool?
+        public var username: String?
+        public var password: String?
+        public var skipCertVerify: Bool?
         
         public static func socks5(name: String, server: String, port: Int) -> Socks5 {
             return .init(name: name, server: server, port: port, tls: nil, username: nil, password: nil, skipCertVerify: nil)
@@ -270,14 +270,14 @@ public enum ClashProxy: Codable {
     }
     
     public struct HTTP: Codable {
-        let name: String
-        let type: ProxyType = .http
-        let server: String
-        let port: Int
-        let tls: Bool?
-        let username: String?
-        let password: String?
-        let skipCertVerify: Bool?
+        public var name: String
+        public let type: ProxyType = .http
+        public var server: String
+        public var port: Int
+        public var tls: Bool?
+        public var username: String?
+        public var password: String?
+        public var skipCertVerify: Bool?
         
         public init(name: String, server: String, port: Int, tls: Bool?, username: String?, password: String?, skipCertVerify: Bool?) {
             self.name = name

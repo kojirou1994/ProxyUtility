@@ -242,18 +242,18 @@ public enum ClashProxy: Codable {
         public let type: ProxyType = .socks5
         public var server: String
         public var port: Int
-        public var tls: Bool?
+        public var tls: Bool
         public var username: String?
         public var password: String?
-        public var skipCertVerify: Bool?
+        public var skipCertVerify: Bool
         
         public static func socks5(name: String, server: String, port: Int) -> Socks5 {
-            return .init(name: name, server: server, port: port, tls: nil, username: nil, password: nil, skipCertVerify: nil)
+            return .init(name: name, server: server, port: port, tls: false, username: nil, password: nil, skipCertVerify: false)
         }
         
         private init(name: String, server: String, port: Int,
-                     tls: Bool?, username: String?, password: String?,
-                     skipCertVerify: Bool?) {
+                     tls: Bool, username: String?, password: String?,
+                     skipCertVerify: Bool) {
             self.name = name
             self.server = server
             self.port = port
@@ -274,12 +274,12 @@ public enum ClashProxy: Codable {
         public let type: ProxyType = .http
         public var server: String
         public var port: Int
-        public var tls: Bool?
+        public var tls: Bool
         public var username: String?
         public var password: String?
-        public var skipCertVerify: Bool?
+        public var skipCertVerify: Bool
         
-        public init(name: String, server: String, port: Int, tls: Bool?, username: String?, password: String?, skipCertVerify: Bool?) {
+        public init(name: String, server: String, port: Int, tls: Bool, username: String?, password: String?, skipCertVerify: Bool) {
             self.name = name
             self.server = server
             self.port = port

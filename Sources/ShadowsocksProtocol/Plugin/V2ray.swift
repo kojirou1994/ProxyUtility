@@ -4,15 +4,15 @@ public struct V2ray: ShadowsocksPluginProtocol, Equatable, Codable {
     
     public static let availablePluginValues: [String] = []
     
-    public let mode: Mode
+    public var mode: Mode
     
-    public let tls: Bool
+    public var tls: Bool
     
     public let launchMode: PluginLaunchMode
     
-    public let path: String
+    public var path: String
     
-    public let host: String
+    public var host: String
     
     public init?<S>(type: PluginLaunchMode, plugin: String, pluginOpts: S) where S : StringProtocol {
         #warning("Unimplemented")

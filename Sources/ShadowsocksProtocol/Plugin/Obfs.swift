@@ -8,9 +8,9 @@ public struct Obfs: ShadowsocksPluginProtocol, Equatable, Codable {
     
     public let launchMode: PluginLaunchMode
     
-    public let mode: Mode
+    public var mode: Mode
     
-    public let obfsHost: String?
+    public var obfsHost: String?
     
     public init?<S>(type: PluginLaunchMode, plugin: String, pluginOpts: S) where S : StringProtocol {
         guard Obfs.availablePluginValues.contains(plugin) else {

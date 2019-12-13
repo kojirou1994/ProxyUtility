@@ -82,15 +82,59 @@ public enum ClashProxy: Codable, Equatable {
     }
     
     public var name: String {
+        set {
+            switch self {
+            case .shadowsocks(var s):
+                s.name = newValue
+                self = .shadowsocks(s)
+            case .socks5(var s):
+                s.name = newValue
+                self = .socks5(s)
+            case .http(var h):
+                h.name = newValue
+                self = .http(h)
+            case .vmess(var v):
+                v.name = newValue
+                self = .vmess(v)
+            }
+        }
+        get {
+            switch self {
+            case .shadowsocks(let s):
+                return s.name
+            case .socks5(let s):
+                return s.name
+            case .http(let h):
+                return h.name
+            case .vmess(let v):
+                return v.name
+            }
+        }
+    }
+
+    public var port: Int {
         switch self {
         case .shadowsocks(let s):
-            return s.name
+            return s.port
         case .socks5(let s):
-            return s.name
+            return s.port
         case .http(let h):
-            return h.name
+            return h.port
         case .vmess(let v):
-            return v.name
+            return v.port
+        }
+    }
+
+    public var type: ProxyType {
+        switch self {
+        case .shadowsocks(_):
+            return .ss
+        case .socks5(_):
+            return .socks5
+        case .http(_):
+            return .http
+        case .vmess(_):
+            return .vmess
         }
     }
     

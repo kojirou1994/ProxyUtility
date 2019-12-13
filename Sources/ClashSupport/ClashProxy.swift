@@ -3,14 +3,14 @@ import ProxyUtility
 import V2RayProtocol
 import ShadowsocksProtocol
 
-public enum ClashProxy: Codable {
+public enum ClashProxy: Codable, Equatable {
     
     case shadowsocks(Shadowsocks)
     case socks5(Socks5)
     case http(HTTP)
     case vmess(ClashVMess)
     
-    public enum ProxyType: String, Codable, CaseIterable {
+    public enum ProxyType: String, Codable, CaseIterable, Equatable {
         case ss
         case vmess
         case socks5
@@ -94,7 +94,7 @@ public enum ClashProxy: Codable {
         }
     }
     
-    public struct ClashVMess: Codable {
+    public struct ClashVMess: Codable, Equatable {
         public var name: String
         public let type: ProxyType = .vmess
         public var server: String
@@ -121,12 +121,12 @@ public enum ClashProxy: Codable {
 //        let wsHeaders:
     }
     
-    public enum VMessCipher: String, Codable, CaseIterable {
+    public enum VMessCipher: String, Codable, CaseIterable, Equatable {
         case auto
         case none
     }
     
-    public struct Shadowsocks: Codable, LosslessShadowsocksConvertible {
+    public struct Shadowsocks: Codable, LosslessShadowsocksConvertible, Equatable {
         
         public init(_ shadowsocks: ShadowsocksConfig) {
             self.cipher = shadowsocks.method
@@ -237,7 +237,7 @@ public enum ClashProxy: Codable {
         }
     }
 
-    public struct Socks5: Codable {
+    public struct Socks5: Codable, Equatable {
         public var name: String
         public let type: ProxyType = .socks5
         public var server: String
@@ -269,7 +269,7 @@ public enum ClashProxy: Codable {
         }
     }
     
-    public struct HTTP: Codable {
+    public struct HTTP: Codable, Equatable {
         public var name: String
         public let type: ProxyType = .http
         public var server: String

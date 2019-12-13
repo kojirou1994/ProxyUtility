@@ -8,7 +8,7 @@ public struct V2ray: ShadowsocksPluginProtocol, Equatable, Codable {
     
     public var tls: Bool
     
-    public let launchMode: PluginLaunchMode
+    public var launchMode: PluginLaunchMode
     
     public var path: String
     
@@ -48,7 +48,7 @@ public struct V2ray: ShadowsocksPluginProtocol, Equatable, Codable {
         return "v2ray-plugin"
     }
     
-    public enum Mode: String, Encodable {
+    public enum Mode: String, Codable {
         case websocket
         case quic
     }
@@ -74,8 +74,12 @@ public struct V2ray: ShadowsocksPluginProtocol, Equatable, Codable {
     }
     
     public init(from decoder: Decoder) throws {
-        #warning("Unimplemented")
-        fatalError()
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        mode = try container.decode(Mode.self, forKey: .mode)
+        tls = try container.decode(Bool.self, forKey: .tls)
+        host = try container.decode(String.self, forKey: .host)
+        path = (try container.decodeIfPresent(String.self, forKey: .path)) ?? ""
+        launchMode = .local
     }
     
     public func encode(to encoder: Encoder) throws {

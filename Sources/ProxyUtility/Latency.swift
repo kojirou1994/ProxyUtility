@@ -1,5 +1,4 @@
 import Foundation
-import Executable
 import KwiftExtension
 
 public enum ProxyLatency: CustomStringConvertible {
@@ -26,15 +25,16 @@ public enum ProxyLatency: CustomStringConvertible {
     public static func test(socks5Port: Int, method: TestMethod) throws -> ProxyLatency {
         switch method {
         case .curl:
-            let result = try CurlLatencyTest(socks5Port: socks5Port)
-                            .runAndCatch(checkNonZeroExitCode: true)
-            let timeString = String(decoding: result.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-            
-            if let time = TimeInterval(timeString) {
-                return.available(speed: time)
-            } else {
-                return .unavailable
-            }
+            return .unavailable
+//            let result = try CurlLatencyTest(socks5Port: socks5Port)
+//                            .runAndCatch(checkNonZeroExitCode: true)
+//            let timeString = String(decoding: result.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+//
+//            if let time = TimeInterval(timeString) {
+//                return.available(speed: time)
+//            } else {
+//                return .unavailable
+//            }
         case .urlsession:
             #if os(macOS)
             let config = URLSessionConfiguration.ephemeral
@@ -59,15 +59,15 @@ public enum ProxyLatency: CustomStringConvertible {
 
 let testURL = URL.init(string: "https://www.google.com")!
 
-public struct CurlLatencyTest: Executable {
-    public static let executableName = "curl"
-    
-    public let arguments: [String]
-    
-    public init(socks5Port: Int) {
-        arguments = [
-//            "google.com/generate_204",
-            "https://www.google.com",
-            "-m", "2", "-s", "-w", "%{time_total}", "--socks5-hostname", "127.0.0.1:\(socks5Port)"]
-    }
-}
+//public struct CurlLatencyTest: Executable {
+//    public static let executableName = "curl"
+//
+//    public let arguments: [String]
+//
+//    public init(socks5Port: Int) {
+//        arguments = [
+////            "google.com/generate_204",
+//            "https://www.google.com",
+//            "-m", "2", "-s", "-w", "%{time_total}", "--socks5-hostname", "127.0.0.1:\(socks5Port)"]
+//    }
+//}

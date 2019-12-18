@@ -2,7 +2,6 @@ import Dispatch
 import Foundation
 import ProxyUtility
 import ProxyProtocol
-import Executable
 import KwiftExtension
 
 public class ProxyLocalClient {
@@ -30,6 +29,7 @@ public class ProxyLocalClient {
     }
     
     public init(proxy: ComplexProxyProtocol, http: LocalHttpProxyService?, serverIp: String, country: String) {
+        fatalError("Unavailable now")
         self.serverIp = serverIp
         self.country = country
         type = proxy.localType
@@ -37,7 +37,8 @@ public class ProxyLocalClient {
 //        Log.info("Starting SSLocal \(proxy.id)...")
         id = proxy.id
         localPort = proxy.localPort
-        process = try! AnyExecutable(executableName: proxy.localExecutable, arguments: proxy.localArguments(configPath: TempConfigManager.shared.save(proxy).path)).generateProcess()
+        process = Process()
+//            try! AnyExecutable(executableName: proxy.localExecutable, arguments: proxy.localArguments(configPath: TempConfigManager.shared.save(proxy).path)).generateProcess()
         #if os(macOS)
         process.standardError = FileHandle.nullDevice
         process.standardOutput = FileHandle.nullDevice

@@ -146,23 +146,35 @@ public enum ClashProxy: Codable, Equatable {
         public var uuid: String
         public var alterId: Int
         public var cipher: VMessCipher
-        public var tls: Bool
-        public var skipCertVerify: Bool
-//        let network: String
-        
+        public var udp: Bool?
+        public var tls: Bool?
+        public var skipCertVerify: Bool?
+        public var network: String?
+        public var wsPath: String?
+        public var wsHeaders: [String: String]?
+
         public init(_ vmess: VMess) {
             name = vmess._value.ps
             server = vmess._value.add
-            port = Int(vmess._value.port)!
+            port = vmess._value.port.value
             uuid = vmess._value.id
-            alterId = vmess._value.aid
+            alterId = vmess._value.aid.value
             cipher = .auto
+            udp = true
             tls = vmess._value.tls == "tls"
-            skipCertVerify = false
-//            network = vmess._value.net
+//            skipCertVerify = false
+            network = vmess._value.net
+            wsPath = vmess._value.path
         }
-//        let wsPath: String
-//        let wsHeaders:
+
+        private enum CodingKeys: String, CodingKey {
+            case name, type, server, port, uuid, alterId, cipher, udp, tls
+            case network
+            case skipCertVerify = "skip-cert-verify"
+            case wsPath = "ws-path"
+            case wsHeaders = "ws-headers"
+        }
+
     }
     
     public enum VMessCipher: String, Codable, CaseIterable, Equatable {

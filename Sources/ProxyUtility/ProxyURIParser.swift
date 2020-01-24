@@ -93,7 +93,14 @@ public struct ProxyURIParser {
                 return .ssr(.init(id: host, server: host, server_port: port, password: password, method: method, protocol: protoc, obfs: obfs))
             }
         } else if url.scheme == "vmess", let host = url.host, let content = host.base64URLDecoded {
-            return try? .vmess(JSONDecoder().decode(VMess.self, from: Data(content.utf8)))
+            do {
+                return try .vmess(JSONDecoder().decode(VMess.self, from: Data(content.utf8)))
+            } catch {
+                #if DEBUG
+                print("Failed to decode vmess, error: \(error)")
+                return nil
+                #endif
+            }
         } else {
             return nil
         }

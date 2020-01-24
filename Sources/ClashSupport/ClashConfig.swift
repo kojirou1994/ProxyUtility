@@ -130,6 +130,7 @@ public struct ClashConfig: Codable {
         case warning
         case error
         case debug
+        case silent
     }
     
     public var socksPort: Int

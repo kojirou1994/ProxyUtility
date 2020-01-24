@@ -16,13 +16,31 @@ public struct VMess: Codable, Equatable, ComplexProxyProtocol {
     
     public static let localExecutable: String = ""
     public let _value: _VMess
+
+    public struct ChineseInt: Codable, Equatable {
+        public let value: Int
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if let int = try? container.decode(Int.self) {
+                value = int
+            } else if let int = Int(try container.decode(String.self)) {
+                value = int
+            } else {
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Fuck chinese int")
+            }
+        }
+        public func encode(to encoder: Encoder) throws {
+            try value.encode(to: encoder)
+        }
+    }
+
     public struct _VMess: Codable, Equatable {
-        public let v: Int
+        public let v: ChineseInt
         public let ps: String
         public let add: String
-        public let port: String
+        public let port: ChineseInt
         public let id: String
-        public let aid: Int
+        public let aid: ChineseInt
         public let net: String
         public let type: String
         public let host: String

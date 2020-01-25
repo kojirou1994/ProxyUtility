@@ -98,8 +98,8 @@ public struct ProxyURIParser {
             } catch {
                 #if DEBUG
                 print("Failed to decode vmess, error: \(error)")
-                return nil
                 #endif
+                return nil
             }
         } else {
             return nil

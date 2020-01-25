@@ -163,8 +163,12 @@ public enum ClashProxy: Codable, Equatable {
             udp = true
             tls = vmess._value.tls == "tls"
 //            skipCertVerify = false
-            network = vmess._value.net
-            wsPath = vmess._value.path
+            if vmess._value.net == "ws" {
+                network = vmess._value.net
+            }
+            if !vmess._value.path.isEmpty {
+                wsPath = vmess._value.path
+            }
         }
 
         private enum CodingKeys: String, CodingKey {
@@ -192,7 +196,7 @@ public enum ClashProxy: Codable, Equatable {
             self.name = shadowsocks.id
             self.plugin = shadowsocks.plugin
             #warning("udp feature")
-            self.udp = false
+            self.udp = true
         }
         
         public var shadowsocks: ShadowsocksConfig {

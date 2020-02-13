@@ -36,6 +36,43 @@ public struct ProxySubscriptionConfiguration: Codable {
     }
 }
 
+public struct SubscriptionContent {
+    public struct Metadata {
+        public var remainingData: String?
+        public var expirationDate: String?
+        public var domain: String?
+    }
+    public let metadata: Metadata
+    public let configs: [ProxyConfig]
+
+    public init(_ configs: [ProxyConfig]) {
+        let invalidC = CharacterSet(charactersIn: ":： \n\r")
+        func clearChineseInput(_ str: Substring) -> String {
+            str.trimmingCharacters(in: invalidC)
+        }
+
+        var remainingData: String?
+        var expirationDate: String?
+        var domain: String?
+        var _configs: [ProxyConfig] = []
+
+        configs.forEach { (config) in
+            if config.id.hasPrefix("剩余流量") {
+                remainingData = clearChineseInput(config.id.dropFirst(4))
+            } else if config.id.hasPrefix("过期时间") {
+                expirationDate = clearChineseInput(config.id.dropFirst(4))
+            } else if config.id.hasPrefix("最新域名") {
+                domain = clearChineseInput(config.id.dropFirst(4))
+            } else {
+                _configs.append(config)
+            }
+        }
+
+        self.metadata = .init(remainingData: remainingData, expirationDate: expirationDate, domain: domain)
+        self.configs = _configs
+    }
+}
+
 public enum ProxySubscriptionType: String, Codable, CaseIterable {
     case surge
     case ssr

@@ -39,20 +39,27 @@ public struct ProxySubscriptionConfiguration: Codable {
 }
 
 public struct SubscriptionContent {
-    public struct Metadata {
+    public struct Metadata: Equatable {
         public var remainingData: String?
         public var expirationDate: String?
         public var domain: String?
+
+        public var hasUsefulInfo: Bool {
+            remainingData != nil || expirationDate != nil || domain != nil
+        }
     }
     public let metadata: Metadata
     public let configs: [ProxyConfig]
 
-    public init(_ configs: [ProxyConfig]) {
-        let invalidC = CharacterSet(charactersIn: ":： \n\r")
-        func clearChineseInput(_ str: Substring) -> String {
-            str.trimmingCharacters(in: invalidC)
-        }
+    @usableFromInline
+    static let invalidC = CharacterSet(charactersIn: ":： \n\r")
 
+    @usableFromInline
+    static func clearChineseInput(_ str: Substring) -> String {
+        str.trimmingCharacters(in: invalidC)
+    }
+
+    public init(_ configs: [ProxyConfig]) {
         var remainingData: String?
         var expirationDate: String?
         var domain: String?
@@ -60,11 +67,11 @@ public struct SubscriptionContent {
 
         configs.forEach { (config) in
             if config.id.hasPrefix("剩余流量") {
-                remainingData = clearChineseInput(config.id.dropFirst(4))
+                remainingData = Self.clearChineseInput(config.id.dropFirst(4))
             } else if config.id.hasPrefix("过期时间") {
-                expirationDate = clearChineseInput(config.id.dropFirst(4))
+                expirationDate = Self.clearChineseInput(config.id.dropFirst(4))
             } else if config.id.hasPrefix("最新域名") {
-                domain = clearChineseInput(config.id.dropFirst(4))
+                domain = Self.clearChineseInput(config.id.dropFirst(4))
             } else {
                 _configs.append(config)
             }

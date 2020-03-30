@@ -8,6 +8,8 @@ import SurgeSupport
 import MaxMindDB
 import URLFileManager
 import KwiftExtension
+import ClashSupport
+import Yams
 
 public enum ProxyCacheStatus {
     case local
@@ -79,6 +81,10 @@ public enum ProxySubscriptionType: String, Codable, CaseIterable {
     case plain
     case ssd
     case vmess
+    case clash
+
+    private static let jsonDecoder = JSONDecoder()
+    private static let yamlDecoder = YAMLDecoder()
 
     public func decode(_ data: Data) -> [ProxyConfig] {
         switch self {
@@ -96,21 +102,13 @@ public enum ProxySubscriptionType: String, Codable, CaseIterable {
             }
 
             let newdata = decoded.data(using: .utf8)!
-            guard let ssd = try? JSONDecoder.init().decode(SSD.self, from: newdata) else {
+            guard let ssd: SSD = try? Self.jsonDecoder.kwiftDecode(from: newdata) else {
                 return []
             }
             //        dump(ssd)
             return ssd.configs.map {ProxyConfig.ss($0)}
         case .ssr:
             return ProxyURIParser.parse(subsription: data)
-//                .compactMap { (p) -> ProxyConfig? in
-//                switch p {
-//                case .ssr(var v):
-////                    v.id = "\(configuration.name)_\(v.id)"
-//                    return .ssr(v)
-//                default: return nil
-//                }
-//            }
         case .surge:
             let confString = String(data: data, encoding: .utf8)!
             let lines = confString.split(separator: "\n").filter { !$0.isEmpty }
@@ -118,20 +116,27 @@ public enum ProxySubscriptionType: String, Codable, CaseIterable {
                 guard let p = SurgeShadowsocksProxy(String(str)) else {
                     return nil
                 }
-//                p.id = "\(configuration.name)_\(p.id)"
                 return .ss(p.ssconf)
+            }
+        case .clash:
+            do {
+                let decoded = try Self.yamlDecoder.decode(ClashConfig.self, from: String(decoding: data, as: UTF8.self), userInfo: .init())
+                return decoded.proxies.compactMap { (clashProxy) -> ProxyConfig? in
+                    switch clashProxy {
+                    case .http(let v):
+                        break
+                    default: break
+                    }
+                    return nil
+                }
+            } catch {
+                #if DEBUG
+                print("Failed to decode clash config, error: \(error)")
+                #endif
+                return []
             }
         case .vmess:
             return ProxyURIParser.parse(subsription: data)
-//                .compactMap { (p) -> Proxy? in
-//                switch p {
-//                case .vmess(var v):
-//                    v.id = v._value.ps
-////                    "\(configuration.name)_\(v._value.ps)"
-//                    return .init(v)
-//                default: return nil
-//                }
-//            }
         }
     }
 }

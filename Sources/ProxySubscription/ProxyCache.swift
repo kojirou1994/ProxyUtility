@@ -1,6 +1,6 @@
 import Foundation
-#if canImport(Kojirobot)
-import Kojirobot
+#if canImport(FoundationNetworking)
+import FoundationNetworking
 #endif
 import ProxyUtility
 import ShadowsocksProtocol
@@ -10,6 +10,7 @@ import URLFileManager
 import KwiftExtension
 import ClashSupport
 import Yams
+import ProxyProtocol
 
 public enum ProxyCacheStatus {
     case local
@@ -98,18 +99,16 @@ public enum ProxySubscriptionType: String, Codable, CaseIterable {
         case .plain:
             return ProxyURIParser.parse(subsription: data)
         case .ssd:
-            let str = String.init(decoding: data, as: UTF8.self)
-            guard str.hasPrefix("ssd://") else {
+          let str = data.utf8String
+            guard str.starts(with: "ssd://") else {
                 return []
             }
 
-            let encoded = String(str.dropFirst(6))
-            guard let decoded = encoded.base64URLDecoded else {
+          guard let decoded = String(str.dropFirst(6)).base64URLDecoded else {
                 return []
             }
 
-            let newdata = decoded.data(using: .utf8)!
-            guard let ssd: SSD = try? Self.jsonDecoder.kwiftDecode(from: newdata) else {
+            guard let ssd: SSD = try? Self.jsonDecoder.kwiftDecode(from: decoded) else {
                 return []
             }
             //        dump(ssd)
@@ -117,8 +116,8 @@ public enum ProxySubscriptionType: String, Codable, CaseIterable {
         case .ssr:
             return ProxyURIParser.parse(subsription: data)
         case .surge:
-            let confString = String(data: data, encoding: .utf8)!
-            let lines = confString.split(separator: "\n").filter { !$0.isEmpty }
+            let confString = data.utf8String
+            let lines = confString.split(separator: "\n").filter { !$0.isBlank }
             return lines.compactMap { (str) -> ProxyConfig? in
                 guard let p = SurgeShadowsocksProxy(String(str)) else {
                     return nil
@@ -154,10 +153,6 @@ public final class ProxySubscriptionCache: ProxyProvidable {
     public let mmdb: MaxMindDB?
     private let session: URLSession
 
-    #if canImport(Kojirobot)
-    let robot: Kojirobot?
-    #endif
-
     private static let updateQueue = DispatchQueue(label: "ProxySubscriptionCache")
 
     public private(set) var proxies: [Proxy] {
@@ -167,12 +162,6 @@ public final class ProxySubscriptionCache: ProxyProvidable {
             
             do {
                 let fileData = proxies.map{ $0.config.uri }.joined(separator: "\n").data(using: .utf8)!
-                #if canImport(Kojirobot)
-                try robot?.send(KojirobotNotification(subject: "代理更新", title: "需要更新自行导入", contentTitle: id, content: """
-                导入时看准每行开头是xx还是xxr，别导入错了
-                windows一次导入全部会很卡，弄几个就够了
-                """, application: "ProxyServer"), attachments: [Attachment(data: fileData, mime: "text/plain", name: "\(id).txt")], completion: nil)
-                #endif
                 try fileData.write(to: cachePath)
             } catch {
 //                Log.error(error.localizedDescription)
@@ -203,13 +192,6 @@ public final class ProxySubscriptionCache: ProxyProvidable {
         self.mmdb = mmdb
         self.session = session
         status = .local
-        #if canImport(Kojirobot)
-        if enableNotification, let notify = configuration.notify {
-            robot = Kojirobot(accountServer: .netease, destinations: notify)
-        } else {
-            robot = nil
-        }
-        #endif
         startUpdate()
     }
 
@@ -232,14 +214,7 @@ public final class ProxySubscriptionCache: ProxyProvidable {
                 }
             }
         }
-        Self.updateQueue.asyncAfter(deadline: .now() + 3600, execute: startUpdate)
-//Log.info("Updating cache for \(id) result: same.")
-//Log.info("Updating cache for \(id) result: success.")
-//Log.info("Updating cache for \(id) result: none proxy.")
-//Log.info("Update cache for \(id) error: \(error.localizedDescription).")
+        Self.updateQueue.asyncAfter(deadline: .now() + .seconds(3600), execute: startUpdate)
     }
-
-    deinit {}
-
     
 }

@@ -1,69 +1,34 @@
-// Data+Base64URL.swift
-//
-// Copyright (c) 2016 Auth0 (http://auth0.com)
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-
 import Foundation
+@_exported import Base64Kit
 
-extension Data {
-    public init?(base64URLEncoded string: String) {
-        let base64Encoded = string
-            .replacingOccurrences(of: "_", with: "/")
-            .replacingOccurrences(of: "-", with: "+")
-        // iOS can't handle base64 encoding without padding. Add manually
-        let padLength = (4 - (base64Encoded.count % 4)) % 4
-        let base64EncodedWithPadding = base64Encoded + String(repeating: "=", count: padLength)
-        self.init(base64Encoded: base64EncodedWithPadding)
-    }
+public extension Base64 {
 
-    public func base64URLEncodedString() -> String {
-        // use URL safe encoding and remove padding
-        return base64EncodedString()
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "=", with: "")
+  static func decodeAutoPadding<Buffer: Collection>(encoded: Buffer, options: DecodingOptions = [])
+    throws -> [UInt8] where Buffer.Element == UInt8
+  {
+    let extraCount = encoded.count % 4
+    if extraCount == 0 {
+      return try decode(encoded: encoded, options: options)
+    } else {
+      let paddingCount = 4 - extraCount
+      var data = Array(encoded)
+      data.reserveCapacity(data.capacity - paddingCount)
+      (0..<paddingCount).forEach { _ in data.append(UInt8(ascii: "=")) }
+      return try decode(encoded: data, options: options)
     }
+  }
+
+  @inlinable
+  static func decodeAutoPadding(encoded: String, options: DecodingOptions = []) throws -> [UInt8] {
+    try decodeAutoPadding(encoded: encoded.utf8, options: options)
+  }
 }
 
 extension String {
-    public var base64URLEncoded: String {
-        return data(using: .utf8)!.base64URLEncodedString()
-    }
 
-    public var base64URLDecoded: String? {
-        if let decodedData = Data(base64URLEncoded: self) {
-            return String(decoding: decodedData, as: UTF8.self)
-        } else {
-            return nil
-        }
-    }
+  @inlinable
+  public var base64URLDecoded: [UInt8]? {
+    try? Base64.decodeAutoPadding(encoded: self, options: .base64UrlAlphabet)
+  }
 
-    public var base64Encoded: String {
-        return data(using: .utf8)!.base64EncodedString()
-    }
-
-    public var base64Decoded: String? {
-        if let decodedData = Data(base64Encoded: self) {
-            return String(decoding: decodedData, as: UTF8.self)
-        } else {
-            return nil
-        }
-    }
 }

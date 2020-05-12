@@ -29,10 +29,10 @@ public protocol ComplexProxyProtocol: PureProxyProtocol {
 
 extension ComplexProxyProtocol {
     public var jsonString: String {
-        return String.init(decoding: jsonConfig, as: UTF8.self)
+        String.init(decoding: jsonConfig, as: UTF8.self)
     }
     
     public var localExecutable: String {
-        return Self.localExecutable
+        Self.localExecutable
     }
 }

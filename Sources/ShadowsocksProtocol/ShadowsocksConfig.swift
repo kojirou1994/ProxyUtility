@@ -110,7 +110,7 @@ public struct ShadowsocksConfig: ShadowsocksProtocol, Equatable, Encodable {
     }
     
     public var uri: String {
-        let userinfo = (method.rawValue + ":" + password).base64URLEncoded
+      let userinfo = Base64.encode(bytes: (method.rawValue + ":" + password).utf8, options: .base64UrlAlphabet)
         var pluginPart: String
         if let plugin = plugin {
 //            if plugin.hasPrefix("/usr/local/bin/") {
@@ -188,18 +188,20 @@ public struct ShadowsocksRConfig: ShadowsocksProtocol, Codable, Equatable {
     public var uri: String {
         // save static uri
         var params = "?"
-        if obfsParam != nil {
-            params += "obfsparam=\(obfsParam!.base64URLEncoded)&"
+        if let v = obfsParam {
+          params += "obfsparam=\(Base64.encode(bytes: v.utf8, options: .base64UrlAlphabet))&"
         }
-        if protoParam != nil {
-            params += "protoparam=\(protoParam!.base64URLEncoded)&"
+        if let v = protoParam {
+            params += "protoparam=\(Base64.encode(bytes: v.utf8, options: .base64UrlAlphabet))&"
         }
-        params += "remarks=\(id.base64URLEncoded)&"
-        if group != nil {
-            params += "group=\(group!.base64URLEncoded)&"
+        params += "remarks=\(Base64.encode(bytes: id.utf8, options: .base64UrlAlphabet))&"
+        if let v = group {
+            params += "group=\(Base64.encode(bytes: v.utf8, options: .base64UrlAlphabet))&"
         }
-        
-        return "ssr://\("\(server):\(serverPort):\(`protocol`):\(method):\(obfs):\(password.base64URLEncoded)/\(params.dropLast())".base64URLEncoded)"
+
+      let fullText = "\(server):\(serverPort):\(`protocol`):\(method):\(obfs):\(Base64.encode(bytes: password.utf8, options: .base64UrlAlphabet))/\(params.dropLast())"
+
+        return "ssr://\(Base64.encode(bytes: fullText.utf8, options: .base64UrlAlphabet))"
     }
 
     public static let localExecutable = "ssr-local"

@@ -1,4 +1,4 @@
-// swift-tools-version:5.1
+// swift-tools-version:5.2
 
 import PackageDescription
 
@@ -18,17 +18,20 @@ let package = Package(
         .package(url: "https://github.com/kojirou1994/MaxMindDB.git", from: "1.0.3"),
         .package(url: "https://github.com/kojirou1994/Kwift.git", from: "0.5.0"),
         .package(url: "https://github.com/kojirou1994/URLFileManager.git", from: "0.0.3"),
-        .package(url: "https://github.com/jpsim/Yams.git", from: "2.0.0")
+        .package(url: "https://github.com/jpsim/Yams.git", from: "3.0.0"),
+        .package(url: "https://github.com/fabianfett/swift-base64-kit", from: "0.0.2")
     ],
     targets: [
         .target(
             name: "ProxyProtocol",
-            dependencies: []),
+            dependencies: [
+              .product(name: "Base64Kit", package: "swift-base64-kit"),
+        ]),
         .target(
             name: "ShadowsocksProtocol",
             dependencies: [
-                "KwiftExtension",
-                "ProxyProtocol",
+              .product(name: "KwiftExtension", package: "Kwift"),
+              "ProxyProtocol",
             ]
         ),
         .target(

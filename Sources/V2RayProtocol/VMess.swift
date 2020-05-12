@@ -95,10 +95,10 @@ public struct VMess: Codable, Equatable, ComplexProxyProtocol {
     }
     
     public var server: String {
-        return _value.add
+        _value.add
     }
     
     public var uri: String{
-        return "vmess://\(String.init(decoding: try! JSONEncoder().encode(_value), as: UTF8.self).base64URLEncoded)"
+      "vmess://\(Base64.encode(bytes: try! JSONEncoder().encode(_value), options: .base64UrlAlphabet))"
     }
 }

@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "ProxyUtility",
     platforms: [
-        .macOS(.v10_13)
+        .macOS(.v10_15)
     ],
     products: [
         .library(name: "ShadowsocksProtocol", targets: ["ShadowsocksProtocol"]),
@@ -16,10 +16,10 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/kojirou1994/MaxMindDB.git", from: "1.0.3"),
-        .package(url: "https://github.com/kojirou1994/Kwift.git", from: "0.5.0"),
+        .package(url: "https://github.com/kojirou1994/Kwift.git", .upToNextMinor(from: "0.7.0")),
         .package(url: "https://github.com/kojirou1994/URLFileManager.git", from: "0.0.3"),
         .package(url: "https://github.com/jpsim/Yams.git", from: "3.0.0"),
-        .package(url: "https://github.com/fabianfett/swift-base64-kit", from: "0.0.2")
+        .package(url: "https://github.com/fabianfett/swift-base64-kit", .upToNextMinor(from: "0.2.0"))
     ],
     targets: [
         .target(

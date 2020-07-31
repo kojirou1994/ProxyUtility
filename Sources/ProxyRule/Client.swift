@@ -8,7 +8,6 @@
 import Foundation
 
 public enum Client: String {
-    case clash
-    case surge
-    case quantumult
+  case clash
+  case quantumult
 }

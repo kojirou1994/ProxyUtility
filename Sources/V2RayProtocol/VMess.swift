@@ -11,13 +11,17 @@ public struct VMess: Codable, Equatable, ComplexProxyProtocol {
     
     public init(from decoder: Decoder) throws {
         let value = try _VMess.init(from: decoder)
-        try self.init(value)
+        self.init(value)
     }
     
     public static let localExecutable: String = ""
     public let _value: _VMess
 
-    public struct ChineseInt: Codable, Equatable {
+  public struct ChineseInt: Codable, Equatable {
+    public init(_ value: Int) {
+      self.value = value
+    }
+
         public let value: Int
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
@@ -34,8 +38,22 @@ public struct VMess: Codable, Equatable, ComplexProxyProtocol {
         }
     }
 
-    public struct _VMess: Codable, Equatable {
-        public let v: ChineseInt
+  public struct _VMess: Codable, Equatable {
+    public init(v: VMess.ChineseInt?, ps: String, add: String, port: VMess.ChineseInt, id: String, aid: VMess.ChineseInt, net: String, type: String, host: String, path: String, tls: String) {
+      self.v = v
+      self.ps = ps
+      self.add = add
+      self.port = port
+      self.id = id
+      self.aid = aid
+      self.net = net
+      self.type = type
+      self.host = host
+      self.path = path
+      self.tls = tls
+    }
+
+        public let v: ChineseInt?
         public let ps: String
         public let add: String
         public let port: ChineseInt
@@ -44,11 +62,11 @@ public struct VMess: Codable, Equatable, ComplexProxyProtocol {
         public let net: String
         public let type: String
         public let host: String
-        public let path: String
+        public let path: String?
         public let tls: String
     }
     
-    private init(_ value: _VMess) throws {
+    public init(_ value: _VMess) {
         self._value = value
         id = value.ps
     }
@@ -99,6 +117,6 @@ public struct VMess: Codable, Equatable, ComplexProxyProtocol {
     }
     
     public var uri: String{
-      "vmess://\(Base64.encode(bytes: try! JSONEncoder().encode(_value), options: .base64UrlAlphabet))"
+      "vmess://\(Base64.encode(bytes: try! JSONEncoder().encode(_value)))"
     }
 }

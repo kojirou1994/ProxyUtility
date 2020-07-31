@@ -6,12 +6,6 @@ import V2RayProtocol
 // https://shadowsocks.org/en/spec/SIP002-URI-Scheme.html
 
 public struct ProxyURIParser {
-  //    public static func parse(_ data: Data) -> Shadowsocks? {
-  //        guard let string = String(data: data, encoding: .utf8) else {
-  //            return nil
-  //        }
-  //        return ProxyURIParser.parse(uri: string)
-  //    }
 
   public static func parse(uri: String) -> ProxyConfig? {
     // ss or ssr
@@ -51,13 +45,11 @@ public struct ProxyURIParser {
           }
           let password = parts[1]
 
-          //                let (plugin, plugin_opts): (String, String)
           let plugin: ShadowsocksPlugin?
           if let pluginParts = url.queryItems?["plugin"]?.removingPercentEncoding?.split(
-            separator: ";", maxSplits: 1)
-          {
+            separator: ";", maxSplits: 1) {
             let pluginName = String(pluginParts[0])
-            plugin = ShadowsocksPlugin.init(
+            plugin = ShadowsocksPlugin(
               type: .local, plugin: pluginName, pluginOpts: pluginParts[1])
           } else {
             plugin = nil
@@ -69,23 +61,23 @@ public struct ProxyURIParser {
               plugin: plugin))
         }
       } else if url.scheme == "ssr", let host = url.host,
-        let content = host.base64URLDecoded?.utf8String
-      {
+        let content = host.base64URLDecoded?.utf8String {
         // ssr://base64(host:port:protocol:method:obfs:base64pass/?obfsparam=base64param&protoparam=base64param&remarks=base64remarks&group=base64group&udpport=0&uot=0)
         let parts = content.split(separator: "/")
         let leftParts = parts[0].split(separator: ":").map(String.init)
         guard leftParts.count == 6 else {
-          //                Log.debug("Invalid uri: \(content)")
           return nil
         }
         let host = leftParts[0]
-        let protoc = leftParts[2]
+
         guard let method = ShadowsocksEnryptMethod(rawValue: leftParts[3]),
-          case let obfs = leftParts[4], let password = leftParts[5].base64URLDecoded?.utf8String
-        else { return nil }
+              let obfs = ShadowsocksRConfig.Obfs(rawValue: leftParts[4]),
+              let protoc = ShadowsocksRConfig.Protocols(rawValue: leftParts[2]),
+              let password = leftParts[5].base64URLDecoded?.utf8String else {
+          return nil
+        }
 
         guard let port = Int(leftParts[1]) else {
-          //                Log.debug("Invalid port: \(part1[1]) from uri: \(content)")
           return nil
         }
 
@@ -113,9 +105,10 @@ public struct ProxyURIParser {
       }
     }
     if uri.starts(with: "vmess://"), case let body = String(uri.dropFirst(8)),
-      let content = try? Base64.decodeAutoPadding(encoded: body)
-    {
-      do { return try .vmess(JSONDecoder().kwiftDecode(from: content)) } catch {
+      let content = try? Base64.decodeAutoPadding(encoded: body) {
+      do {
+        return try .vmess(JSONDecoder().kwiftDecode(from: content))
+      } catch {
         #if DEBUG
         print("Failed to decode vmess, error: \(error)")
         #endif
@@ -130,16 +123,16 @@ public struct ProxyURIParser {
     if let parsed = try? Base64.decodeAutoPadding(encoded: data).utf8String {
       // official SSR sub
       decodedString = parsed
-    } else if let parsed = try? Base64.decodeAutoPadding(encoded: data, options: .base64UrlAlphabet)
-      .utf8String
-    {
+    } else if let parsed = try? Base64.decodeAutoPadding(encoded: data, options: .base64UrlAlphabet) .utf8String {
       // official SSR sub
       decodedString = parsed
     } else {
       // plain SS sub
       decodedString = data.utf8String
     }
-    return decodedString.split(separator: "\n").compactMap { ProxyURIParser.parse(uri: String($0)) }
+    return decodedString
+      .split(separator: "\n")
+      .compactMap { ProxyURIParser.parse(uri: String($0)) }
   }
 }
 

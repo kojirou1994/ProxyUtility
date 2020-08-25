@@ -26,12 +26,16 @@ public enum RuleType: String, CustomStringConvertible, CaseIterable, Codable {
         return false
       }
     case .clash :
-      switch self {
-      case .userAgent, .urlRegex, .processName:
-        return false
-      default:
-        return true
-      }
+      return supportClash
+    }
+  }
+
+  public var supportClash: Bool {
+    switch self {
+    case .userAgent, .urlRegex:
+      return false
+    default:
+      return true
     }
   }
 
@@ -52,7 +56,7 @@ public enum RuleType: String, CustomStringConvertible, CaseIterable, Codable {
     }
   }
 
-  public static let clashSupported = Self.allCases.filter {$0.supports(for: .clash)}
+  public static let clashSupported = Self.allCases.filter {$0.supportClash}
 
 }
 

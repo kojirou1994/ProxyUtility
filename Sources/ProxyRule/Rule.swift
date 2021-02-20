@@ -1,80 +1,20 @@
 import Foundation
 
-public enum RuleType: String, CustomStringConvertible, CaseIterable, Codable {
-  case domain = "DOMAIN"
-  case domainSuffix = "DOMAIN-SUFFIX"
-  case domainKeyword = "DOMAIN-KEYWORD"
-  case ipCIDR = "IP-CIDR"
-  case geoip = "GEOIP"
-  case final = "FINAL"
-  case userAgent = "USER-AGENT"
-  case urlRegex = "URL-REGEX"
-  case processName = "PROCESS-NAME"
-  case destPort = "DEST-PORT"
-  case srcIPCIDR = "SRC-IP-CIDR"
-  case srcPort = "SRC-PORT"
-
-  public var description: String { return rawValue }
-
-  public func supports(for client: Client) -> Bool {
-    switch client {
-    case .quantumult:
-      switch self {
-      case .domain, .domainKeyword, .domainSuffix, .final, .ipCIDR, .geoip:
-        return true
-      default:
-        return false
-      }
-    case .clash :
-      return supportClash
-    }
-  }
-
-  public var supportClash: Bool {
-    switch self {
-    case .userAgent, .urlRegex:
-      return false
-    default:
-      return true
-    }
-  }
-
-  public func string(for client: Client) -> String {
-    switch (client, self) {
-    case (.clash, .final):
-      return "MATCH"
-    case (.clash, .destPort):
-      return "DST-PORT"
-    case (.quantumult, .domainSuffix):
-      return "HOST-SUFFIX"
-    case (.quantumult, .domainKeyword):
-      return "HOST-KWYWORD"
-    case (.quantumult, .domain):
-      return "HOST"
-    default:
-      return rawValue
-    }
-  }
-
-  public static let clashSupported = Self.allCases.filter {$0.supportClash}
-
-}
-
 public struct Rule: CustomStringConvertible, Codable {
 
   public static func parse<S: StringProtocol>(_ string: S, allowEmptyPolicy: Bool = false) -> Self? {
     let parts = string.split(separator: ",", omittingEmptySubsequences: false)
-    guard (parts.count == 2 || parts.count == 3),
-          let type = RuleType(rawValue: String(parts[0])) else {
+    guard parts.count > 1,
+          let ruleType = RuleType(rawValue: String(parts[0])) else {
       return nil
     }
     let matcher: String
     let policy: String
-    if type == .final {
+    if ruleType == .final {
       matcher = .init()
-      policy = parts.last!.trimmingCharacters(in: .whitespacesAndNewlines)
+      policy = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
     } else {
-      guard parts.count == 3 else {
+      guard parts.count > 2 else {
         return nil
       }
       matcher = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
@@ -83,37 +23,52 @@ public struct Rule: CustomStringConvertible, Codable {
     if !allowEmptyPolicy, policy.isEmpty {
       return nil
     }
-    return .init(type: type, matcher: matcher, policy: policy)
+    return .init(info: .init(ruleType, matcher, noResolve: parts.dropFirst(3).contains("no-resolve")), policy: policy)
   }
 
   public var description: String {
-    if type == .final {
-      return "\(type.rawValue),\(policy)"
+    if info.ruleType == .final {
+      return "\(info.ruleType.rawValue),\(policy)"
     }
-    return "\(type.rawValue),\(matcher),\(policy)"
+    return "\(info.ruleType.rawValue),\(info.matchers),\(policy)"
   }
 
-  public func generateConfigLine(for client: Client) -> String? {
-    guard type.supports(for: client) else {
-      return nil
-    }
-    if type == .final {
-      return "\(type.string(for: client)),\(policy)"
-    }
-    return "\(type.string(for: client)),\(matcher),\(policy)"
+  public func generateConfigLines(for client: ProxyClient) -> [String] {
+    info.ruleType.supports(for: client)
+      ?
+      info.matchers.map { matcher in
+        var line = info.ruleType.string(for: client)
+        if info.ruleType != .final {
+          line.append(",")
+          line.append(matcher)
+        }
+        line.append(",")
+        line.append(policy)
+
+        if info.noResolve,
+           info.isRuleNoResolveSupported(for: client) {
+          line.append(",")
+          line.append("no-resolve")
+        }
+
+        return line
+      }
+      : []
   }
+
+  public var info: RuleInfo
+  public var policy: String
 
   /// this init method will not check if matcher is empty string
-  public init(type: RuleType, matcher: String, policy: String) {
-    self.type = type
-    self.matcher = matcher
+  public init(info: RuleInfo, policy: String) {
+    self.info = info
     self.policy = policy
   }
 
-  public var type: RuleType
-  public var matcher: String
-  public var policy: String
-
+  public init(_ ruleType: RuleType, _ matcher: String, _ policy: String, noResolve: Bool = false) {
+    self.info = .init(ruleType, matcher, noResolve: noResolve)
+    self.policy = policy
+  }
 }
 
 public class RuleManager {
@@ -126,19 +81,6 @@ public class RuleManager {
 
   public let finalPolicy: String
 
-  static let regularRules: [Rule] = """
-    IP-CIDR,10.0.0.0/8,DIRECT
-    IP-CIDR,100.64.0.0/10,DIRECT
-    IP-CIDR,127.0.0.0/8,DIRECT
-    IP-CIDR,17.0.0.0/8,DIRECT
-    IP-CIDR,192.168.0.0/16,DIRECT
-    IP-CIDR,172.16.0.0/12,DIRECT
-    IP-CIDR,128.199.244.16/32,DIRECT
-    IP-CIDR,123.125.117.0/22,REJECT,no-resolve
-    IP-CIDR,61.160.200.252/32,REJECT,no-resolve
-    GEOIP,CN,DIRECT
-    """.components(separatedBy: "\n").compactMap{ Rule.parse($0) }
-
   private func readRules(_ filename: String) -> [Rule] {
     (try? String.init(contentsOfFile: filename).components(separatedBy: .newlines).compactMap{ Rule.parse($0) }) ?? []
   }
@@ -149,7 +91,7 @@ public class RuleManager {
 
   public var allRules: [Rule] {
     readRules(forceProxy) + readRules(forceDirect) + readRules(selectProxy)
-      + readRules(forceReject) + RuleManager.regularRules + [Rule.init(type: .final, matcher: "", policy: finalPolicy)]
+      + readRules(forceReject) + Rule.normalLanRules + [Rule(.final, "", finalPolicy)]
   }
 
   public init(forceDirect: String, forceProxy: String, forceReject: String, selectProxy: String, finalPolicy: String) {
@@ -160,4 +102,16 @@ public class RuleManager {
     self.finalPolicy = finalPolicy
   }
 
+}
+
+extension Rule {
+  public static let normalLanRules: [Rule] = [
+    .init(.ipCIDR, "10.0.0.0/8", ""),
+    .init(.ipCIDR, "100.64.0.0/10", ""),
+    .init(.ipCIDR, "127.0.0.0/8", ""),
+    .init(.ipCIDR, "17.0.0.0/8", ""),
+    .init(.ipCIDR, "192.168.0.0/16", ""),
+    .init(.ipCIDR, "172.16.0.0/12", ""),
+    .init(.geoip, "CN", "")
+  ]
 }

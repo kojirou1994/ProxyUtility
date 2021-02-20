@@ -1,0 +1,83 @@
+import Foundation
+import ProxyWorldUtility
+import KwiftExtension
+import ProxySubscription
+import ProxyUtility
+import URLFileManager
+import ClashSupport
+import ProxyRule
+import Yams
+import ArgumentParser
+import QuantumultSupport
+
+enum ConfigFormat: String, ExpressibleByArgument, CaseIterable {
+  case clash
+  case qx
+  case qxServer = "qxServer"
+}
+
+struct GenerateProxyConfig: ParsableCommand {
+
+  @Option(name: .shortAndLong)
+  var output: String
+
+  @Option(name: .shortAndLong, help: "Available: \(ConfigFormat.allCases.map(\.rawValue).joined(separator: ", "))")
+  var format: ConfigFormat
+
+  @Argument()
+  var configPath: String
+
+  func run() throws {
+    let fm = URLFileManager.default
+    let inputURL = URL(fileURLWithPath: configPath)
+    let outputURL = URL(fileURLWithPath: output)
+    try preconditionOrThrow(!fm.fileExistance(at: outputURL).exists, "Output existed!")
+    let config = try JSONDecoder().kwiftDecode(from: Data(contentsOf: inputURL), as: ProxyWorldConfiguration.self)
+    let session = URLSession(configuration: .ephemeral)
+
+    var proxyCache = [String: [ProxyConfig]]()
+
+    config.subscriptions.forEach { subscription in
+      do {
+        print("Start to update subscription \(subscription.name)")
+        let response = try session
+          .syncResultTask(with: URLRequest(url: subscription.url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 20))
+          .get()
+
+        let content = SubscriptionContent(subscription.type.decode(response.data))
+        print("Success!")
+        if content.metadata.hasUsefulInfo {
+          print("Information: \(content.metadata)")
+        }
+        print("Totally \(content.configs.count) nodes.")
+        proxyCache[subscription.id.uuidString] = content.configs
+      } catch {
+        print("Error while updating subscription \(subscription.name), \(error)")
+      }
+    }
+
+    let clashConfig = config.generateClash(
+      baseConfig: ClashConfig(mode: .rule),
+      mode: .rule, tailDirectRules: Rule.normalLanRules,
+      proxyCache: proxyCache,
+      ruleGroupPrefix: "[RULE] ",
+      urlTestGroupPrefix: "[BEST] ",
+      fallbackGroupPrefix: "[FALLBACK] ") { _ in nil }
+
+    let outputString: String
+    switch format {
+    case .clash:
+      outputString = try YAMLEncoder().encode(clashConfig)
+    case .qx:
+      outputString = clashConfig.quantumultXConfig
+    case .qxServer:
+      outputString = clashConfig.proxies?.map(\.quantumXLine).joined(separator: "\n") ?? ""
+    }
+
+    print("Writing...")
+    try outputString.write(to: outputURL, atomically: true, encoding: .utf8)
+  }
+}
+
+
+GenerateProxyConfig.main()

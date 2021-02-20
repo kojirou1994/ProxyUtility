@@ -11,7 +11,7 @@ public enum ClashProxy: Codable, Equatable {
   case trojan(Trojan)
   case ssr(ShadowsocksR)
 
-  public enum ProxyType: String, Codable, CaseIterable, Equatable {
+  public enum ProxyType: String, Codable, CaseIterable, Equatable, Identifiable {
     case ss
     case vmess
     case socks5
@@ -19,6 +19,8 @@ public enum ClashProxy: Codable, Equatable {
     case snell
     case trojan
     case ssr
+
+    public var id: Self { self }
   }
 
   public init(_ proxy: ProxyConfig) {

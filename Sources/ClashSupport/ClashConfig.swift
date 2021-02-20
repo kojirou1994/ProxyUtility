@@ -33,6 +33,7 @@ public struct ClashConfig: Codable {
   public var proxies: [ClashProxy]?
 
   public var proxyProviders: [String: ProxyProvider]?
+  public var profile: Profile? = .init()
 
   private enum CodingKeys: String, CodingKey {
     case proxyGroups = "proxy-groups"
@@ -68,6 +69,10 @@ public struct ClashConfig: Codable {
 }
 
 extension ClashConfig {
+
+  public static let directPolicy = "DIRECT"
+
+  public static let rejectPolicy = "REJECT"
 
   public struct ProxyGroup: Codable, Equatable {
 
@@ -273,5 +278,13 @@ extension ClashConfig {
     case error
     case debug
     case silent
+  }
+
+  public struct Profile: Codable {
+    public var storeSelected: Bool = false
+
+    private enum CodingKeys: String, CodingKey {
+      case storeSelected = "store-selected"
+    }
   }
 }

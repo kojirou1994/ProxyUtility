@@ -84,7 +84,7 @@ public struct SubscriptionContent {
   }
 }
 
-public enum ProxySubscriptionType: String, Codable, CaseIterable {
+public enum ProxySubscriptionType: String, Codable, CaseIterable, Identifiable {
   case surge
   case ssr
   case plain
@@ -94,6 +94,8 @@ public enum ProxySubscriptionType: String, Codable, CaseIterable {
 
   private static let jsonDecoder = JSONDecoder()
   private static let yamlDecoder = YAMLDecoder()
+
+  public var id: Self { self }
 
   public func decode(_ data: Data) -> [ProxyConfig] {
     switch self {

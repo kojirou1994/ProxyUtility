@@ -1,0 +1,74 @@
+import ProxyRule
+
+let nintendo = RuleProvider(
+  name: "Nintendo", description: "Nintendo services.",
+  collections: [
+    .init(name: "Nintendo", description: "",
+          rules: [
+            .init(.domainSuffix, [
+              "nintendo.com", "nintendo.net"
+            ])
+          ], recommendedPolicy: .select)
+  ])
+
+let privateTracker = RuleProvider(
+  name: "Private tracker", description: "Private trackers and websites.",
+  collections: [
+    .init(
+      name: "MTeam", description: "",
+      rules: [
+        .init(.domainSuffix, [
+          "m-team.cc"
+        ])
+      ], recommendedPolicy: .direct),
+    .init(
+      name: "GayTorrent", description: "",
+      rules: [
+        .init(.domainSuffix, [
+          "gay-torrents.org"
+        ])
+      ], recommendedPolicy: .direct),
+    .init(
+      name: "Rarbg", description: "",
+      rules: [
+        .init(.domainSuffix, [
+          "torrentapi.org"
+        ])
+      ], recommendedPolicy: .select),
+    .init(
+      name: "TTG", description: "totheglory",
+      rules: [
+        .init(.domainSuffix, [
+          "totheglory.im"
+        ])
+      ], recommendedPolicy: .select),
+
+  ])
+
+/*
+ One Drive
+ live.com
+
+ */
+
+let lan = RuleProvider(
+  name: "LAN", description: "Rules for local area network.",
+  collections: [
+    .init(
+      name: "CLAN",
+      description: "Big C**** LAN.",
+      rules: [
+        .init(.geoip, ["CN"])
+      ], recommendedPolicy: .direct),
+    .init(
+      name: "LAN", description: "Normal LAN addresses.",
+      rules: [
+        .init(.ipCIDR, "10.0.0.0/8"),
+        //              .init(ruleType: .ipCIDR, matcher: "17.0.0.0/8"), apple route
+        .init(.ipCIDR, "100.64.0.0/10"),
+        .init(.ipCIDR, "127.0.0.0/8"),
+        .init(.ipCIDR, "172.16.0.0/12"),
+        .init(.ipCIDR, "192.168.0.0/16"),
+        .init(.ipCIDR6, "fe80::/10")
+      ], recommendedPolicy: .direct)
+  ])

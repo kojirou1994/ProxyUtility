@@ -10,6 +10,8 @@ public enum AbstractRulePolicy: String, Codable, Equatable, CaseIterable, Identi
   case select
   /// select from every single proxies
   case selectProxy
+  /// select from proxy ip groups 
+  case selectIpRegion
 
   public var id: Self { self }
 

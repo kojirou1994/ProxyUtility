@@ -5,12 +5,13 @@ fileprivate let appleICloud = RuleCollection(
   rules: [
     .init(.domainSuffix, [
       "icloud.com",
+      "icloud.com.cn",
       "icloud-content.com"
     ])
   ], recommendedPolicy: .direct)
 
 fileprivate let appleDeveloper = RuleCollection(
-  name: "Apple Developer", description: "Apple developer site.",
+  name: "Developer", description: "Apple developer site, including streaming service.",
   rules: [
     .init(.domain, [
       "devimages-cdn.apple.com",
@@ -32,10 +33,8 @@ fileprivate let appleSoftware = RuleCollection(
     ])
   ], recommendedPolicy: .select)
 
-
-
 fileprivate let appleMusic = RuleCollection(
-  name: "Apple Music", description: "App Music.",
+  name: "Music", description: "Apple Music streaming.",
   rules: [
     .init(.domain, [
       "audio.itunes.apple.com",
@@ -43,25 +42,27 @@ fileprivate let appleMusic = RuleCollection(
       "aod.itunes.apple.com",
     ])
   ], recommendedPolicy: .select)
+
+fileprivate let appleTV = RuleCollection(
+  name: "TV", description: "Apple TV Service.",
+  rules: [
+    .init(.domainSuffix, [
+      "tv.apple.com",
+    ])
+  ], recommendedPolicy: .select)
 // mzstatic.com
 
-
 fileprivate let appleMap = RuleCollection(
-  name: "AppMap", description: "Apple Location/Map Service.",
+  name: "Map", description: "Apple Location/Map Service.",
   rules: [
-    .init(.domain, [
-      "iosapps.itunes.apple.com", "osxapps.itunes.apple.com",
-      "ppq.apple.com",
-    ]),
     .init(.domainSuffix, [
       "ls.apple.com",
       "gs-loc.apple.com"
     ])
-  ], recommendedPolicy: .select)
-
+  ], recommendedPolicy: .direct)
 
 fileprivate let appStore = RuleCollection(
-  name: "AppStore", description: "App Store.",
+  name: "App Store", description: "App Store.",
   rules: [
     .init(.domain, [
       "iosapps.itunes.apple.com", "osxapps.itunes.apple.com",
@@ -73,16 +74,14 @@ fileprivate let appStore = RuleCollection(
     ])
   ], recommendedPolicy: .select)
 
-
 fileprivate let contentCaching = RuleCollection(
-  name: "ContentCaching", description: "",
+  name: "Content Caching", description: "",
   rules: [
     .init(.domain, [
       "lcdn-registration.apple.com",
       "suconfig.apple.com"
     ]),
   ], recommendedPolicy: .direct)
-
 
 fileprivate let blockedServices = RuleCollection(
   name: "Blocked", description: "Blocked apple services.",
@@ -104,9 +103,8 @@ fileprivate let blockedServices = RuleCollection(
     .init(.domain, "music.apple.com")
   ], recommendedPolicy: .select)
 
-
 fileprivate let certificateValidation = RuleCollection(
-  name: "Certificate validation", description: "Apple devices must be able to connect to the following hosts to validate digital certificates used by the hosts listed above.",
+  name: "Certificate", description: "Apple devices must be able to connect to the following hosts to validate digital certificates used by the hosts listed above.",
   rules: [
     .init(.domain, [
       "crl.apple.com",
@@ -118,23 +116,29 @@ fileprivate let certificateValidation = RuleCollection(
       "ocsp.entrust.net",
       "ocsp.verisign.net"
     ]),
-  ], recommendedPolicy: .select)
+  ], recommendedPolicy: .proxy)
 
 fileprivate let allAppleRoutes = RuleCollection(
   name: "Route", description: "The entire 17.0.0.0/8 address block is assigned to Apple.",
   rules: [
+    .init(.domainSuffix, "apple.com"),
     .init(.ipCIDR, [
       "17.0.0.0/8",
     ]),
-    .init(.domainSuffix, "apple.com")
-  ], recommendedPolicy: .select)
+  ], recommendedPolicy: .direct)
 
 let apple = RuleProvider(
   name: "Apple", description: "Apple services.",
   collections: [
     appleICloud,
     appleDeveloper,
+    appleSoftware,
+    appleMusic,
+    appleTV,
+    appleMap,
+    appStore,
     contentCaching,
+    blockedServices,
     certificateValidation,
     allAppleRoutes
   ])

@@ -3,16 +3,17 @@ import ProxyRule
 let nintendo = RuleProvider(
   name: "Nintendo", description: "Nintendo services.",
   collections: [
-    .init(name: "Nintendo", description: "",
-          rules: [
-            .init(.domainSuffix, [
-              "nintendo.com", "nintendo.net"
-            ])
-          ], recommendedPolicy: .select)
+    .init(
+      name: "Nintendo", description: "",
+      rules: [
+        .init(.domainSuffix, [
+          "nintendo.com", "nintendo.net"
+        ])
+      ], recommendedPolicy: .select)
   ])
 
 let privateTracker = RuleProvider(
-  name: "Private tracker", description: "Private trackers and websites.",
+  name: "Private Tracker", description: "Private trackers and websites.",
   collections: [
     .init(
       name: "MTeam", description: "",
@@ -63,12 +64,13 @@ let lan = RuleProvider(
     .init(
       name: "LAN", description: "Normal LAN addresses.",
       rules: [
-        .init(.ipCIDR, "10.0.0.0/8"),
-        //              .init(ruleType: .ipCIDR, matcher: "17.0.0.0/8"), apple route
-        .init(.ipCIDR, "100.64.0.0/10"),
-        .init(.ipCIDR, "127.0.0.0/8"),
-        .init(.ipCIDR, "172.16.0.0/12"),
-        .init(.ipCIDR, "192.168.0.0/16"),
-        .init(.ipCIDR6, "fe80::/10")
+        .init(.ipCIDR,
+              ["10.0.0.0/8",
+               "100.64.0.0/10",
+               "127.0.0.0/8",
+               "172.16.0.0/12",
+               "192.168.0.0/16",
+              ]),
+        .init(.ipCIDR6, "fe80::/10"),
       ], recommendedPolicy: .direct)
   ])

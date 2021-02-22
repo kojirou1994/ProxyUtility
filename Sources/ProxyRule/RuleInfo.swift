@@ -1,4 +1,4 @@
-public struct RuleInfo: Codable {
+public struct RuleInfo: Codable, Equatable {
 
   public var ruleType: RuleType
   public var matchers: [String]

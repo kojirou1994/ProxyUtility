@@ -13,7 +13,8 @@ import QuantumultSupport
 enum ConfigFormat: String, ExpressibleByArgument, CaseIterable {
   case clash
   case qx
-  case qxServer = "qxServer"
+  case qxServer
+  case qxFilter
 }
 
 struct GenerateProxyConfig: ParsableCommand {
@@ -36,6 +37,7 @@ struct GenerateProxyConfig: ParsableCommand {
     let session = URLSession(configuration: .ephemeral)
 
     var proxyCache = [String: [ProxyConfig]]()
+    var ruleCache = [String: RuleProvider]()
 
     config.subscriptions.forEach { subscription in
       do {
@@ -56,10 +58,31 @@ struct GenerateProxyConfig: ParsableCommand {
       }
     }
 
+    config.ruleSubscriptions.forEach { ruleSubscription in
+      do {
+        print("Start to update rule subscription \(ruleSubscription.name)")
+        let subscriptionData: Data
+        if ruleSubscription.isLocalFile {
+          subscriptionData = try Data(contentsOf: URL(fileURLWithPath: ruleSubscription.url))
+        } else {
+          subscriptionData = try session
+            .syncResultTask(with: URLRequest(url: URL(string: ruleSubscription.url)!, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 20))
+            .get().data
+        }
+        let decoded = try YAMLDecoder().decode(from: String(decoding: subscriptionData, as: UTF8.self)) as RuleProvider
+        print("Success!")
+        ruleCache[ruleSubscription.id.uuidString] = decoded
+      } catch {
+        print("Error while updating subscription \(ruleSubscription.name), \(error)")
+      }
+    }
+
     let clashConfig = config.generateClash(
       baseConfig: ClashConfig(mode: .rule),
-      mode: .rule, tailDirectRules: Rule.normalLanRules,
-      proxyCache: proxyCache,
+      mode: .rule,
+//      tailDirectRules: Rule.normalLanRules,
+      ruleSubscriptionCache: ruleCache,
+      proxySubscriptionCache: proxyCache,
       ruleGroupPrefix: "[RULE] ",
       urlTestGroupPrefix: "[BEST] ",
       fallbackGroupPrefix: "[FALLBACK] ") { _ in nil }
@@ -71,7 +94,9 @@ struct GenerateProxyConfig: ParsableCommand {
     case .qx:
       outputString = clashConfig.quantumultXConfig
     case .qxServer:
-      outputString = clashConfig.proxies?.map(\.quantumXLine).joined(separator: "\n") ?? ""
+      outputString = clashConfig.serverLocalQXLines
+    case .qxFilter:
+      outputString = clashConfig.filterLocalQXLines
     }
 
     print("Writing...")

@@ -47,20 +47,27 @@ public struct ProxyWorldSubscription: Identifiable, Codable, Equatable, Hashable
 }
 
 public struct ProxyWorldConfiguration: Codable, Equatable {
-  public init(rules: [ProxyWorldRuleGroup], subscriptions: [ProxyWorldSubscription], dns: ClashConfig.ClashDNS, normal: ProxyWorldConfiguration.NormalConfiguration, proxies: [ProxyWorldProxy]) {
+  public init(
+    rules: [RuleCollection], ruleSubscriptions: [ProxyWorldRuleSubscription],
+    proxies: [ProxyWorldProxy], subscriptions: [ProxyWorldSubscription],
+    dns: ClashConfig.ClashDNS, normal: ProxyWorldConfiguration.NormalConfiguration) {
     self.rules = rules
+    self.ruleSubscriptions = ruleSubscriptions
     self.subscriptions = subscriptions
     self.dns = dns
     self.normal = normal
     self.proxies = proxies
   }
 
-  public var rules: [ProxyWorldRuleGroup]
+  public var rules: [RuleCollection]
+  public var ruleSubscriptions: [ProxyWorldRuleSubscription]
+
+  public var proxies: [ProxyWorldProxy]
   public var subscriptions: [ProxyWorldSubscription]
+
   public var dns: ClashConfig.ClashDNS
   public var normal: NormalConfiguration
   //    var exterbak: ExternalProxyConfig
-  public var proxies: [ProxyWorldProxy]
 }
 extension ProxyWorldConfiguration {
   public struct ExternalProxyConfig: Codable, Equatable {
@@ -69,16 +76,13 @@ extension ProxyWorldConfiguration {
   }
 
   public struct NormalConfiguration: Codable, Equatable {
-    public init(mainProxyName: String,
-                  userProxyGroupName: String,
-                  //                      selectUseMainProxy: Bool,
-                  //                      joinSelectCatory: Bool,
-                  finalDirect: Bool, logLevel: ClashConfig.LogLevel, allowLan: Bool,
-                  httpPort: Int, socksPort: Int, apiPort: Int) {
+    public init(
+      mainProxyName: String,
+      userProxyGroupName: String,
+      finalDirect: Bool, logLevel: ClashConfig.LogLevel, allowLan: Bool,
+      httpPort: Int, socksPort: Int, apiPort: Int) {
       self.mainProxyGroupName = mainProxyName
       self.userProxyGroupName = userProxyGroupName
-      //            self.selectUseMainProxy = selectUseMainProxy
-      //            self.joinSelectCatory = joinSelectCatory
       self.finalDirect = finalDirect
       self.logLevel = logLevel
       self.allowLan = allowLan
@@ -103,17 +107,26 @@ extension ProxyWorldConfiguration {
     public var allowLan: Bool
     public var httpPort: Int
     public var socksPort: Int
+    public var mixedPort: Int?
     public var apiPort: Int
     public var apiBindAddress: String?
+    /// not working now, set this to Charles proxy or something
+    public var overrideDirect: String?
+
+    public var serverCheckUrl: String?
+    public var serverCheckInterval: Int?
   }
 }
+
+let defaultServerCheckUrl = "http://www.google.com/generate_204"
+let defaultServerCheckInterval = 300
 
 extension ProxyWorldConfiguration {
   public func generateClash(
     baseConfig: ClashConfig,
     mode: ClashConfig.Mode,
-    tailDirectRules: [Rule],
-    proxyCache: [String : [ProxyConfig]],
+    ruleSubscriptionCache: [String : RuleProvider],
+    proxySubscriptionCache: [String : [ProxyConfig]],
     ruleGroupPrefix: String,
     urlTestGroupPrefix: String,
     fallbackGroupPrefix: String,
@@ -131,7 +144,7 @@ extension ProxyWorldConfiguration {
 
     for subscription in subscriptions {
       var groupProxies = [ClashProxy]()
-      let cachedNodes = proxyCache[subscription.id.uuidString] ?? []
+      let cachedNodes = proxySubscriptionCache[subscription.id.uuidString] ?? []
       for proxy in cachedNodes {
         var clashProxy = ClashProxy(proxy)
         let originalName = clashProxy.name
@@ -139,11 +152,6 @@ extension ProxyWorldConfiguration {
           print("No name")
         } else {
           clashProxy.name = allProxyNames.makeUniqueName(basename: clashProxy.name, keyPath: \.self)
-          //                    var number = 1
-          //                    while allProxyNames.contains(clashProxy.name) {
-          //                        clashProxy.name = "\(originalName) \(number)"
-          //                        number += 1
-          //                    }
           allProxyNames.insert(clashProxy.name)
           groupProxies.append(clashProxy)
         }
@@ -178,10 +186,22 @@ extension ProxyWorldConfiguration {
     proxyGroup.append(contentsOf: subGroups)
 
     // url-test or fallback
+    let checkUrl: String
+    if let provided = normal.serverCheckUrl, !provided.isEmpty {
+      checkUrl = provided
+    } else {
+      checkUrl = defaultServerCheckUrl
+    }
+    let checkInterval: Int
+    if let provided = normal.serverCheckInterval, provided > 30 {
+      checkInterval = provided
+    } else {
+      checkInterval = defaultServerCheckInterval
+    }
     let urlTestGroups = urlTestProxies
-      .map { ClashConfig.ProxyGroup.urlTest(name: $0.key, proxies: $0.value.map { $0.name }, url: "http://www.gstatic.com/generate_204", interval: 300) }
+      .map { ClashConfig.ProxyGroup.urlTest(name: $0.key, proxies: $0.value.map(\.name), url: checkUrl, interval: checkInterval) }
     let fallbackGroups = fallbackProxies
-      .map { ClashConfig.ProxyGroup.fallback(name: $0.key, proxies: $0.value.map { $0.name }, url: "http://www.gstatic.com/generate_204", interval: 300) }
+      .map { ClashConfig.ProxyGroup.fallback(name: $0.key, proxies: $0.value.map(\.name), url: checkUrl, interval: checkInterval) }
     proxyGroup.append(contentsOf: urlTestGroups)
     proxyGroup.append(contentsOf: fallbackGroups)
     mainGroupProxies.append(contentsOf: availableProxies.keys.sorted())
@@ -197,30 +217,56 @@ extension ProxyWorldConfiguration {
 
     let ruleSelectGroupProxies = CollectionOfOne(mainGroup.name) + mainGroupProxies
 
-    for ruleSet in rules {
-      var tempRules = ruleSet.nodes.flatMap { $0.rules }
-      let policyName: String
-      switch ruleSet.policy {
-      case .direct: policyName = ClashConfig.directPolicy
-      case .proxy: policyName = normal.mainProxyGroupName
-      case .reject: policyName = ClashConfig.rejectPolicy
-      case .select, .selectProxy:
-        // generate rule group
-        policyName = proxyGroup.makeUniqueName(basename: ruleGroupPrefix + ruleSet.name, keyPath: \.name)
-        let selectGroup = ClashConfig.ProxyGroup.select(name: policyName, proxies: ruleSelectGroupProxies)
-        // or use direct/mainProxy
-        proxyGroup.append(selectGroup)
+    func generateAndAddRuleGroup<T: Collection>(
+      namePrefix: String = "", ruleCollections: T,
+      overridePoliciesDictionary: [String : AbstractRulePolicy]? = nil)
+    where T.Element == RuleCollection {
+
+      for ruleCollection in ruleCollections {
+        let newSelectGroupName = proxyGroup.makeUniqueName(basename: ruleGroupPrefix + namePrefix + ruleCollection.name, keyPath: \.name)
+        let selectGroup = ClashConfig.ProxyGroup.select(name: newSelectGroupName, proxies: ruleSelectGroupProxies)
+
+        var matcherCount = [AbstractRulePolicy : Int]()
+
+        let policy = overridePoliciesDictionary?[ruleCollection.name] ?? ruleCollection.recommendedPolicy
+
+        for ruleInfo in ruleCollection.rules where !ruleInfo.matchers.isEmpty {
+          matcherCount[policy, default: 0] += ruleInfo.matchers.count
+          let policyName: String
+          switch policy {
+          case .direct: policyName = ClashConfig.directPolicy
+          case .proxy: policyName = normal.mainProxyGroupName
+          case .reject: policyName = ClashConfig.rejectPolicy
+          case .select:
+            // generate rule group
+            policyName = newSelectGroupName
+          case .selectProxy, .selectIpRegion:
+            fatalError("Unimplemented")
+          }
+
+          outputRules.append(.init(info: ruleInfo, policy: policyName))
+        }
+        if matcherCount[.select, default: 0] > 0 {
+          // or use direct/mainProxy
+          proxyGroup.append(selectGroup)
+        }
       }
 
-      for index in tempRules.indices {
-        tempRules[index].policy = policyName
-      }
-      outputRules.append(contentsOf: tempRules)
     }
 
-    tailDirectRules.forEach { rule in
-      #warning("fix me")
-//      outputRules.append(.init(rule.info.ruleType, rule.info.matchers, ClashConfig.directPolicy))
+    for ruleCollection in rules {
+      generateAndAddRuleGroup(ruleCollections: CollectionOfOne(ruleCollection))
+    }
+
+    for ruleSubscription in ruleSubscriptions {
+      guard let cachedRuleProvider = ruleSubscriptionCache[ruleSubscription.id.uuidString] else {
+        continue
+      }
+      var customName: String = ruleSubscription.name.isEmpty ? cachedRuleProvider.name : ruleSubscription.name
+      if !customName.isEmpty {
+        customName.append(" - ")
+      }
+      generateAndAddRuleGroup(namePrefix: customName, ruleCollections: cachedRuleProvider.collections, overridePoliciesDictionary: ruleSubscription.overridePoliciesDictionary)
     }
 
     if normal.finalDirect {
@@ -233,21 +279,16 @@ extension ProxyWorldConfiguration {
     config.proxyGroups = proxyGroup
     config.logLevel = normal.logLevel
     config.rules = outputRules.flatMap { $0.generateConfigLines(for: .clash) }
-//    if config.allowLan == nil {
-      config.allowLan = normal.allowLan
-//    }
+    config.allowLan = normal.allowLan
     config.externalController = "\(normal.apiBindAddress ?? "127.0.0.1"):\(normal.apiPort)"
     config.mode = mode
-//    if config.socksPort == nil {
-      config.socksPort = normal.socksPort
-//    }
-//    if config.httpPort == nil {
-      config.httpPort = normal.httpPort
-//    }
-//    if config.dns == nil {
-      config.dns = dns
-//    }
+    config.ipv6 = dns.ipv6
+    config.socksPort = normal.socksPort
+    config.httpPort = normal.httpPort
+    config.mixedPort = normal.mixedPort
+    config.dns = dns
     config.proxies = outputProxies
+
     return config
   }
 }

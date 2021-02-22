@@ -29,6 +29,9 @@ public struct ClashConfig: Codable {
   public var socksPort: Int?
   public var httpPort: Int?
   public var redirPort: Int?
+  public var tproxyPort: Int?
+  public var mixedPort: Int?
+  public var ipv6: Bool?
 
   public var proxies: [ClashProxy]?
 
@@ -48,6 +51,9 @@ public struct ClashConfig: Codable {
     case socksPort = "socks-port"
     case httpPort = "port"
     case redirPort = "redir-port"
+    case tproxyPort = "tproxy-port"
+    case mixedPort = "mixed-port"
+    case ipv6
     case logLevel = "log-level"
     case proxyProviders = "proxy-providers"
   }
@@ -161,8 +167,7 @@ extension ClashConfig {
     }
 
     public init(from decoder: Decoder) throws {
-      let c = try decoder.singleValueContainer()
-      let str = try c.decode(String.self)
+      let str = try decoder.singleValueContainer().decode(String.self)
       if let sep = str.firstIndex(of: ":") {
         username = String(str[..<sep])
         password = String(str[str.index(after: sep)...])

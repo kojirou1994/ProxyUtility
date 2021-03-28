@@ -2,60 +2,71 @@ import Foundation
 
 public struct ClashConfig: Codable {
 
-  public var proxyGroups: [ProxyGroup]?
-
-  public var experimental: ExperimantalFeature?
-
-  public var authentication: [Authentication]?
-
-  /// optional in fact
-  public var dns: ClashDNS?
-
-  public var tun: ClashTun?
-
-  public var hosts: [String: String]?
-
-  public var logLevel: LogLevel?
-
-  public var rules: [String]?
-
-  public var allowLan: Bool?
-
-  public var externalController: String?
-  public var secret: String?
-
-  public var mode: Mode
-
-  public var socksPort: Int?
   public var httpPort: Int?
+  public var socksPort: Int?
   public var redirPort: Int?
   public var tproxyPort: Int?
   public var mixedPort: Int?
+
+  public var authentication: [Authentication]?
+
+  public var allowLan: Bool?
+  public var bindAddress: String?
+
+  public var mode: Mode
+  public var logLevel: LogLevel?
   public var ipv6: Bool?
+  public var externalController: String?
+  public var externalUI: String?
+  public var secret: String?
+
+  public var interfaceName: String?
+
+  public var hosts: [String: String]?
+
+  public var profile: Profile? = .init()
+
+  public var dns: ClashDNS?
 
   public var proxies: [ClashProxy]?
 
+  public var proxyGroups: [ProxyGroup]?
+
   public var proxyProviders: [String: ProxyProvider]?
-  public var profile: Profile? = .init()
+
+  public var rules: [String]?
+
+  // MARK: Premium Features
+
+  public var tun: ClashTun?
+
+//  public var ruleProviders: [String: RuleProvider]?
 
   private enum CodingKeys: String, CodingKey {
-    case proxyGroups = "proxy-groups"
-    case mode
-    case dns
-    case tun
-    case hosts
-    case rules
-    case externalController = "external-controller"
-    case allowLan = "allow-lan"
-    case proxies
-    case socksPort = "socks-port"
     case httpPort = "port"
+    case socksPort = "socks-port"
     case redirPort = "redir-port"
     case tproxyPort = "tproxy-port"
     case mixedPort = "mixed-port"
-    case ipv6
+    case authentication
+    case allowLan = "allow-lan"
+    case bindAddress = "bind-address"
+    case mode
     case logLevel = "log-level"
+    case ipv6
+    case externalController = "external-controller"
+    case externalUI = "external-ui"
+    case secret
+    case interfaceName = "interface-name"
+    case hosts
+    case profile
+    case dns
+    case proxies
+    case proxyGroups = "proxy-groups"
     case proxyProviders = "proxy-providers"
+    case rules
+    case tun
+//    case ruleProviders = "rule-providers"
   }
 
   public init(
@@ -136,23 +147,6 @@ extension ClashConfig {
       .init(url: url, interval: interval, name: name, type: .loadBalance, proxies: proxies)
     }
 
-  }
-
-  public struct ExperimantalFeature: Codable, Equatable {
-
-    public var ignoreResolveFail: Bool?
-
-    public var interfaceName: String?
-
-    public init(ignoreResolveFail: Bool? = nil, interfaceName: String? = nil) {
-      self.ignoreResolveFail = ignoreResolveFail
-      self.interfaceName = interfaceName
-    }
-
-    private enum CodingKeys: String, CodingKey {
-      case ignoreResolveFail = "ignore-resolve-fail"
-      case interfaceName = "interface-name"
-    }
   }
 
   public struct Authentication: Codable, Equatable {
@@ -236,11 +230,13 @@ extension ClashConfig {
     public var stack: TunStack?
     public var dnsHijack: [String]?
     public var macOSAutoRoute: Bool?
+    public var macOSAutoDetectInterface: Bool?
 
     private enum CodingKeys: String, CodingKey {
       case enable, stack
       case dnsHijack = "dns-hijack"
       case macOSAutoRoute = "macOS-auto-route"
+      case macOSAutoDetectInterface = "macOS-auto-detect-interface"
     }
 
     public enum TunStack: String, Codable {
@@ -269,6 +265,21 @@ extension ClashConfig {
       public var url: String
     }
   }
+
+//  public struct RuleProvider: Codable {
+//    public enum Behavior: String, Codable {
+//      case domain
+//      case ipcidr
+//      case classical
+//    }
+//
+//    public var behavior: Behavior
+//
+//    public var path: String
+//
+//    public var url: String?
+//
+//  }
 
   public enum Mode: String, Codable, CaseIterable, Equatable {
     case rule

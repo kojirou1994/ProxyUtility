@@ -297,7 +297,12 @@ extension ClashConfig {
   }
 
   public struct Profile: Codable {
-    public var storeSelected: Bool = false
+    
+    public init(storeSelected: Bool = false) {
+      self.storeSelected = storeSelected
+    }
+
+    public var storeSelected: Bool
 
     private enum CodingKeys: String, CodingKey {
       case storeSelected = "store-selected"

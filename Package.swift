@@ -13,7 +13,8 @@ let package = Package(
     .library(name: "ProxySubscription", targets: ["ProxySubscription"]),
     .library(name: "ClashSupport", targets: ["ClashSupport"]),
     .library(name: "ProxyRule", targets: ["ProxyRule"]),
-    .library(name: "ProxyWorldUtility", targets: ["ProxyWorldUtility"])
+    .library(name: "ProxyWorldUtility", targets: ["ProxyWorldUtility"]),
+    .library(name: "QuantumultSupport", targets: ["QuantumultSupport"]),
   ],
   dependencies: [
     .package(url: "https://github.com/kojirou1994/MaxMindDB.git", from: "1.0.3"),

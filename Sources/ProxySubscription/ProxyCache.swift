@@ -4,7 +4,6 @@ import FoundationNetworking
 #endif
 import ProxyUtility
 import ShadowsocksProtocol
-import SurgeSupport
 import MaxMindDB
 import URLFileManager
 import KwiftExtension
@@ -119,14 +118,7 @@ public enum ProxySubscriptionType: String, Codable, CaseIterable, Identifiable {
     case .ssr:
       return ProxyURIParser.parse(subsription: data)
     case .surge:
-      let confString = data.utf8String
-      let lines = confString.split(separator: "\n").filter { !$0.isBlank }
-      return lines.compactMap { (str) -> ProxyConfig? in
-        if let p = SurgeShadowsocksProxy(String(str)) {
-          return .ss(p.ssconf)
-        }
-        return nil
-      }
+      return []
     case .clash:
       do {
         struct _ClashProxyConfig: Decodable {

@@ -13,6 +13,8 @@ extension ClashProxy {
     public var psk: String
 
     public var obfsOpts: ObfsOpts?
+
+    public var version: Int?
     
     public init(name: String, server: String, port: Int, psk: String, obfsOpts: ClashProxy.Snell.ObfsOpts? = nil) {
       self.name = name
@@ -33,6 +35,7 @@ extension ClashProxy {
 
     private enum CodingKeys: String, CodingKey {
       case name, type, server, port, psk
+      case version
       case obfsOpts = "obfs-opts"
     }
   }

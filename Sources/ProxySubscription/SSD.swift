@@ -36,7 +36,7 @@ struct SSD: Codable {
   var configs: [ShadowsocksConfig] {
     if let plugin = ShadowsocksPlugin.init(type: .local, plugin: plugin, pluginOpts: pluginOptions) {
       return servers.map({ (server) -> ShadowsocksConfig in
-        return ShadowsocksConfig.local(id: "\(airport)_\(server.remarks)", server: server.server, serverPort: port, password: password, method: encryption, plugin: plugin)
+        return ShadowsocksConfig.local(id: "\(airport)_\(server.remarks)", server: server.server, serverPort: port, password: password, method: encryption, mode: .both, plugin: plugin)
       })
     } else {
       print("Unsupported ss plugin: \(plugin), opts: \(pluginOptions)")

@@ -22,12 +22,11 @@ public protocol LosslessShadowsocksConvertible {
 }
 
 public struct ShadowsocksConfig: ShadowsocksProtocol, Equatable, Encodable {
-  public var localType: LocalType { return .socks5 }
+  public var localType: LocalType { .socks5 }
 
   public func localArguments(configPath: String) -> [String] {
-    return ["-c", configPath, "-u"]
+    ["-c", configPath]
   }
-
 
   public var id: String
   public let server: String
@@ -36,30 +35,32 @@ public struct ShadowsocksConfig: ShadowsocksProtocol, Equatable, Encodable {
   public var localPort: Int
   public let password: String
   public let timeout: Int
+  public let mode: Mode
   public let method: ShadowsocksEnryptMethod
   public let plugin: ShadowsocksPlugin?
+  public enum Mode: String, Codable, CaseIterable {
+    case udp = "udp_only"
+    case tcp = "tcp_only"
+    case both = "tcp_and_udp"
 
+    var argument: String? {
+      switch self {
+      case .both: return "-u"
+      case .tcp: return nil
+      case .udp: return "-U"
+      }
+    }
+  }
   struct Experimantal {
     var fast_open: Bool
     var reuse_port: Bool
     var no_delay: Bool
-    enum Mode: String, Codable, CaseIterable {
-      case udp = "udp_only"
-      case tcp = "tcp_only"
-      case both = "tcp_and_udp"
-      var argument: String? {
-        switch self {
-        case .both: return "-u"
-        case .tcp: return nil
-        case .udp: return "-U"
-        }
-      }
-    }
   }
 
   private enum CodingKeys: String, CodingKey {
     case id
     case server
+    case mode
     case serverPort = "server_port"
     case localAddress = "local_address"
     case localPort = "local_port"
@@ -71,6 +72,7 @@ public struct ShadowsocksConfig: ShadowsocksProtocol, Equatable, Encodable {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(id, forKey: .id)
     try container.encode(server, forKey: .server)
+    try container.encode(mode, forKey: .mode)
     try container.encode(serverPort, forKey: .serverPort)
     try container.encode(localAddress, forKey: .localAddress)
     try container.encode(localPort, forKey: .localPort)
@@ -84,33 +86,34 @@ public struct ShadowsocksConfig: ShadowsocksProtocol, Equatable, Encodable {
   }
 
   public static func server(id: String, server: String, serverPort: Int, password: String,
-                            timeout: Int = 3600, method: ShadowsocksEnryptMethod,
+                            mode: Mode, timeout: Int = 3600, method: ShadowsocksEnryptMethod,
                             plugin: ShadowsocksPlugin? = nil) -> ShadowsocksConfig {
-    return .init(id: id, server: server, serverPort: serverPort, localAddress: nil,
-                 localPort: 0, password: password, timeout: timeout, method: method, plugin: plugin)
+    .init(id: id, server: server, serverPort: serverPort, localAddress: nil,
+          localPort: 0, password: password, mode: mode, timeout: timeout, method: method, plugin: plugin)
   }
 
   public static func local(id: String, server: String, serverPort: Int, localAddress: String = "127.0.0.1",
                            localPort: Int = 1080, password: String, method: ShadowsocksEnryptMethod,
-                           plugin: ShadowsocksPlugin? = nil) -> ShadowsocksConfig {
-    return .init(id: id, server: server, serverPort: serverPort, localAddress: localAddress,
-                 localPort: localPort, password: password, timeout: 3600, method: method, plugin: plugin)
+                           mode: Mode, plugin: ShadowsocksPlugin? = nil) -> ShadowsocksConfig {
+    .init(id: id, server: server, serverPort: serverPort, localAddress: localAddress,
+          localPort: localPort, password: password, mode: mode, timeout: 3600, method: method, plugin: plugin)
   }
 
-  private init(id: String, server: String, serverPort: Int, localAddress: String? = nil, localPort: Int = 1080, password: String, timeout: Int = 600, method: ShadowsocksEnryptMethod, plugin: ShadowsocksPlugin?) {
+  private init(id: String, server: String, serverPort: Int, localAddress: String? = nil, localPort: Int = 1080, password: String, mode: Mode, timeout: Int = 600, method: ShadowsocksEnryptMethod, plugin: ShadowsocksPlugin?) {
     self.id = id.isEmpty ? server : id
     self.server = server
     self.serverPort = serverPort
     self.localAddress = localAddress
     self.localPort = localPort
     self.password = password
+    self.mode = mode
     self.timeout = timeout
     self.method = method
     self.plugin = plugin
   }
 
   public var uri: String {
-    let userinfo = Base64.encode(bytes: (method.rawValue + ":" + password).utf8, options: .base64UrlAlphabet)
+    let userinfo = Base64.encodeString(bytes: (method.rawValue + ":" + password).utf8, options: .base64UrlAlphabet)
     var pluginPart: String
     if let plugin = plugin {
       //            if plugin.hasPrefix("/usr/local/bin/") {
@@ -129,7 +132,7 @@ public struct ShadowsocksConfig: ShadowsocksProtocol, Equatable, Encodable {
     try! SharedEncoders.jsonEncoder.encode(self)
   }
 
-  public static let localExecutable = "ss-local"
+  public static let localExecutable = "sslocal"
 }
 
 
@@ -220,19 +223,19 @@ public struct ShadowsocksRConfig: ShadowsocksProtocol, Codable, Equatable {
     // save static uri
     var params = "?"
     if let v = obfsParam {
-      params += "obfsparam=\(Base64.encode(bytes: v.utf8, options: .base64UrlAlphabet))&"
+      params += "obfsparam=\(Base64.encodeString(bytes: v.utf8, options: .base64UrlAlphabet))&"
     }
     if let v = protoParam {
-      params += "protoparam=\(Base64.encode(bytes: v.utf8, options: .base64UrlAlphabet))&"
+      params += "protoparam=\(Base64.encodeString(bytes: v.utf8, options: .base64UrlAlphabet))&"
     }
-    params += "remarks=\(Base64.encode(bytes: id.utf8, options: .base64UrlAlphabet))&"
+    params += "remarks=\(Base64.encodeString(bytes: id.utf8, options: .base64UrlAlphabet))&"
     if let v = group {
-      params += "group=\(Base64.encode(bytes: v.utf8, options: .base64UrlAlphabet))&"
+      params += "group=\(Base64.encodeString(bytes: v.utf8, options: .base64UrlAlphabet))&"
     }
 
-    let fullText = "\(server):\(serverPort):\(`protocol`):\(method):\(obfs):\(Base64.encode(bytes: password.utf8, options: .base64UrlAlphabet))/\(params.dropLast())"
+    let fullText = "\(server):\(serverPort):\(`protocol`):\(method):\(obfs):\(Base64.encodeString(bytes: password.utf8, options: .base64UrlAlphabet))/\(params.dropLast())"
 
-    return "ssr://\(Base64.encode(bytes: fullText.utf8, options: .base64UrlAlphabet))"
+    return "ssr://\(Base64.encodeString(bytes: fullText.utf8, options: .base64UrlAlphabet))"
   }
 
   public static let localExecutable = "ssr-local"

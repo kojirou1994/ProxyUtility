@@ -21,14 +21,14 @@ let package = Package(
     .package(url: "https://github.com/kojirou1994/Kwift.git", from: "0.8.0"),
     .package(url: "https://github.com/kojirou1994/URLFileManager.git", from: "0.0.3"),
     .package(url: "https://github.com/jpsim/Yams.git", from: "3.0.0"),
-    .package(url: "https://github.com/fabianfett/swift-base64-kit", .upToNextMinor(from: "0.2.0")),
-    .package(url: "https://github.com/apple/swift-argument-parser", from: "0.0.1")
+    .package(url: "https://github.com/swift-extras/swift-extras-base64.git", from: "0.7.0"),
+    .package(url: "https://github.com/apple/swift-argument-parser.git", from: "0.0.1")
   ],
   targets: [
     .target(
       name: "ProxyProtocol",
       dependencies: [
-        .product(name: "Base64Kit", package: "swift-base64-kit"),
+        .product(name: "ExtrasBase64", package: "swift-extras-base64"),
       ]),
     .target(
       name: "ShadowsocksProtocol",

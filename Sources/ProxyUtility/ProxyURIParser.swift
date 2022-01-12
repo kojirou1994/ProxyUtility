@@ -29,7 +29,7 @@ public struct ProxyURIParser {
           return .ss(
             .local(
               id: "", server: String(host), serverPort: port, password: String(password),
-              method: method, plugin: nil))
+              method: method, mode: .both, plugin: nil))
         } else {
           // ss scheme
           // SS-URI = ss://" userinfo "@" hostname ":" port [ "/" ] [ "?" plugin ] [ "#" tag ]
@@ -58,7 +58,7 @@ public struct ProxyURIParser {
             .local(
               id: url.fragment?.replacingOccurrences(of: "\n", with: "") ?? String(host),
               server: String(host), serverPort: port, password: String(password), method: method,
-              plugin: plugin))
+              mode: .both, plugin: plugin))
         }
       } else if url.scheme == "ssr", let host = url.host,
         let content = host.base64URLDecoded?.utf8String {
@@ -105,7 +105,7 @@ public struct ProxyURIParser {
       }
     }
     if uri.starts(with: "vmess://"), case let body = String(uri.dropFirst(8)),
-      let content = try? Base64.decodeAutoPadding(encoded: body) {
+       let content = try? Base64.decode(string: body, options: [.omitPaddingCharacter]) {
       do {
         return try .vmess(JSONDecoder().kwiftDecode(from: content))
       } catch {
@@ -120,10 +120,10 @@ public struct ProxyURIParser {
 
   public static func parse(subsription data: Data) -> [ProxyConfig] {
     let decodedString: String
-    if let parsed = try? Base64.decodeAutoPadding(encoded: data).utf8String {
+    if let parsed = try? Base64.decode(bytes: data, options: [.omitPaddingCharacter]).utf8String {
       // official SSR sub
       decodedString = parsed
-    } else if let parsed = try? Base64.decodeAutoPadding(encoded: data, options: .base64UrlAlphabet) .utf8String {
+    } else if let parsed = try? Base64.decode(bytes: data, options: [.omitPaddingCharacter, .base64UrlAlphabet]).utf8String {
       // official SSR sub
       decodedString = parsed
     } else {

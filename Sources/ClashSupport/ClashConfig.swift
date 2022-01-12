@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ClashConfig: Codable {
+public struct ClashConfig: Codable, Equatable {
 
   public var httpPort: Int?
   public var socksPort: Int?
@@ -11,6 +11,7 @@ public struct ClashConfig: Codable {
   public var authentication: [Authentication]?
 
   public var allowLan: Bool?
+  /// This is only applicable when  allowLan is true, set to "*" to bind all IP addresses
   public var bindAddress: String?
 
   public var mode: Mode
@@ -21,6 +22,7 @@ public struct ClashConfig: Codable {
   public var secret: String?
 
   public var interfaceName: String?
+  public var routingMark: Int?
 
   public var hosts: [String: String]?
 
@@ -66,6 +68,7 @@ public struct ClashConfig: Codable {
     case proxyProviders = "proxy-providers"
     case rules
     case tun
+    case routingMark = "routing-mark"
 //    case ruleProviders = "rule-providers"
   }
 
@@ -92,31 +95,39 @@ extension ClashConfig {
   public static let rejectPolicy = "REJECT"
 
   public struct ProxyGroup: Codable, Equatable {
-
-    public var url: String?
-
-    public var interval: Int?
-
     public var name: String
-
     public let type: ProxyGroupType
+    public var proxies: [String]
+
+    public var tolerance: Int?
+    public var lazy: Bool?
+    public var url: String?
+    public var interval: Int?
+    public var strategy: Strategy?
+    public var disableUDP: Bool?
+    public var interfaceName: String?
+
+    public var providers: [String]?
 
     public enum ProxyGroupType: String, Codable, CaseIterable {
       case select
       case urlTest = "url-test"
       case fallback
       case loadBalance = "load-balance"
-      //          case relay
+      case relay
+      case tolerance, lazy
+    }
+    public enum Strategy: String, Codable, CaseIterable {
+      case consistentHashing = "consistent-hashing"
+      case roundRobin = "round-robin"
     }
 
-    public var proxies: [String]
-
     private enum CodingKeys: String, CodingKey {
-      case name
-      case url
-      case proxies
-      case type
-      case interval
+      case name, type, proxies, tolerance
+      case lazy, url, interval, strategy
+      case disableUDP = "disable-udp"
+      case interfaceName = "interface-name"
+      case providers = "use"
     }
 
     private init(url: String?, interval: Int?, name: String,
@@ -180,19 +191,27 @@ extension ClashConfig {
 
     /// set true to enable dns
     public var enable: Bool?
-    public var ipv6: Bool?
     public var listen: String?
+    public var ipv6: Bool?
     public var enhancedMode: EnhanceMode?
     public var fakeIpRange: String?
+    public var useHosts: Bool?
+    public var defaultNameserver: [String]?
     public var nameserver: [String]?
     public var fallback: [String]?
+    public var fakeIpFilter: [String]?
     public var fallbackFilter: FallbackFilter?
+    public var nameserverPolicy: [String : String]?
 
     private enum CodingKeys: String, CodingKey {
       case enable, ipv6, listen, nameserver, fallback
       case enhancedMode = "enhanced-mode"
       case fallbackFilter = "fallback-filter"
       case fakeIpRange = "fake-ip-range"
+      case fakeIpFilter = "fake-ip-filter"
+      case defaultNameserver = "default-nameserver"
+      case nameserverPolicy = "nameserver-policy"
+      case useHosts = "use-hosts"
     }
 
     public enum EnhanceMode: String, Codable {
@@ -203,13 +222,14 @@ extension ClashConfig {
     public struct FallbackFilter: Codable, Equatable {
 
       public var geoip: Bool
+      public var geoipCode: String
 
       /// ips in these subnets will be considered polluted
       public var ipcidr: [String]
-
-      public init(geoip: Bool = true, ipcidr: [String]) {
-        self.geoip = geoip
-        self.ipcidr = ipcidr
+      public var domain: [String]
+      private enum CodingKeys: String, CodingKey {
+        case geoip, ipcidr, domain
+        case geoipCode = "geoip-code"
       }
     }
 
@@ -245,24 +265,28 @@ extension ClashConfig {
     }
   }
 
-  public struct ProxyProvider: Codable {
-    public enum ProviderType: String, Codable {
+  public struct ProxyProvider: Codable, Equatable {
+    public enum ProviderType: String, Codable, Equatable {
       case http
       case file
     }
 
+    public var type: ProviderType
+    public var url: String?
+    public var path: String
+    public var interval: Int?
     public var healthCheck: HealthCheck
 
-    public var path: String
-
-    public var url: String?
-
-    public var interval: Int?
-
-    public struct HealthCheck: Codable {
+    public struct HealthCheck: Codable, Equatable {
       public var enable: Bool
       public var interval: Int
+      public var lazy: Bool?
       public var url: String
+    }
+
+    private enum CodingKeys: String, CodingKey {
+      case type, url, interval, path
+      case healthCheck = "health-check"
     }
   }
 
@@ -296,16 +320,18 @@ extension ClashConfig {
     case silent
   }
 
-  public struct Profile: Codable {
-    
-    public init(storeSelected: Bool = false) {
+  public struct Profile: Codable, Equatable {
+    public init(storeSelected: Bool = false, storaFakeIP: Bool = false) {
       self.storeSelected = storeSelected
+      self.storaFakeIP = storaFakeIP
     }
 
     public var storeSelected: Bool
+    public var storaFakeIP: Bool
 
     private enum CodingKeys: String, CodingKey {
       case storeSelected = "store-selected"
+      case storaFakeIP = "store-fake-ip"
     }
   }
 }

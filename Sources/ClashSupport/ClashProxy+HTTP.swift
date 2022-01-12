@@ -1,13 +1,14 @@
 extension ClashProxy {
-  public struct HTTP: Codable, Equatable {
+  public struct HTTP: Codable, Equatable, ClashTLSFeature, ClashVerifyCertFeature {
     public var name: String
     public let type: ProxyType = .http
     public var server: String
     public var port: Int
-    public var tls: Bool
+    public var tls: Bool?
     public var username: String?
     public var password: String?
-    public var skipCertVerify: Bool
+    public var skipCertVerify: Bool?
+    public var sni: String?
     
     public init(name: String, server: String, port: Int, tls: Bool,
                 username: String?, password: String?, skipCertVerify: Bool) {
@@ -22,6 +23,7 @@ extension ClashProxy {
 
     private enum CodingKeys: String, CodingKey {
       case name, type, server, port, tls, username, password
+      case sni
       case skipCertVerify = "skip-cert-verify"
     }
   }

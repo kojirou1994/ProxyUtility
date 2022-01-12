@@ -2,7 +2,7 @@ import ShadowsocksProtocol
 import ProxyUtility
 
 extension ClashProxy {
-  public struct ShadowsocksR: Codable, Equatable {
+  public struct ShadowsocksR: Codable, Equatable, ClashUDPFeature {
 
     public var name: String
     public let type: ProxyType = .ssr
@@ -13,9 +13,9 @@ extension ClashProxy {
     public var password: String
     public var obfs: ShadowsocksRConfig.Obfs
     public var `protocol`: ShadowsocksRConfig.Protocols
-    public var obfsParam: String
-    public var protocolParam: String
-    public var udp: Bool
+    public var obfsParam: String?
+    public var protocolParam: String?
+    public var udp: Bool?
 
     public init(name: String, server: String, port: Int,
                 cipher: ShadowsocksEnryptMethod, password: String,

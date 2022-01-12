@@ -34,8 +34,8 @@ extension ClashProxy {
       prefix = "http"
       parameters["username"] = http.username
       parameters["password"] = http.password
-      parameters["over-tls"] = http.tls.description
-      parameters["tls-verification"] = (!http.skipCertVerify).description
+      parameters["over-tls"] = http.isTLSEnabled.description
+      parameters["tls-verification"] = (http.isCertVerificationEnabled).description
     case .vmess(let vmess):
       /*
        # Optional field tls13 is only for vmess obfs=over-tls and obfs=wss
@@ -60,16 +60,17 @@ extension ClashProxy {
       }
       parameters["method"] = method.rawValue
       parameters["password"] = vmess.uuid
-      parameters["udp-relay"] = vmess.udp.description
+      parameters["udp-relay"] = vmess.isUDPEnabled.description
       if let network = vmess.network {
         switch network {
         case .http:
           parameters["obfs"] = nil
         case .ws:
           parameters["obfs"] = "ws"
+        default: fatalError("what?")
         }
-        parameters["obfs-host"] = vmess.wsHeaders.host
-        parameters["obfs-uri"] = vmess.wsPath
+        parameters["obfs-host"] = vmess.wsOptions?.headers?.host
+        parameters["obfs-uri"] = vmess.wsOptions?.path
       }
     default:
       return "Unsupported or not implemented: \(self)"

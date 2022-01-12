@@ -1,7 +1,45 @@
 import ShadowsocksProtocol
 
+extension ShadowsocksPlugin {
+  var toClash: ClashProxy.Shadowsocks.PluginOptions {
+    switch self {
+    case .obfs(let obfs):
+      return .obfs(.init(mode: obfs.mode, host: obfs.obfsHost))
+    case .v2ray(let v):
+      return .v2ray(.init(mode: v.mode, tls: v.tls, skipCertVerify: nil, host: v.host, path: v.path, mux: v.mux, headers: nil))
+    }
+  }
+}
+
+public protocol ClashUDPFeature {
+  var udp: Bool? { get }
+}
+public protocol ClashTLSFeature {
+  var tls: Bool? { get }
+}
+public protocol ClashVerifyCertFeature {
+  var skipCertVerify: Bool? { get }
+}
+extension ClashUDPFeature {
+  public var isUDPEnabled: Bool {
+    udp ?? false
+  }
+}
+
+extension ClashTLSFeature {
+  public var isTLSEnabled: Bool {
+    tls ?? false
+  }
+}
+
+extension ClashVerifyCertFeature {
+  public var isCertVerificationEnabled: Bool {
+    !(skipCertVerify ?? false)
+  }
+}
+
 extension ClashProxy {
-  public struct Shadowsocks: Codable, LosslessShadowsocksConvertible, Equatable {
+  public struct Shadowsocks: Codable, Equatable, ClashUDPFeature {
 
     public init(_ shadowsocks: ShadowsocksConfig) {
       self.cipher = shadowsocks.method
@@ -9,18 +47,17 @@ extension ClashProxy {
       self.server = shadowsocks.server
       self.port = shadowsocks.serverPort
       self.name = shadowsocks.id
-      self.plugin = shadowsocks.plugin
-      #warning("udp feature")
-      self.udp = true
+      self.plugin = shadowsocks.plugin?.toClash
+      self.udp = shadowsocks.mode != .tcp
     }
 
-    public var shadowsocks: ShadowsocksConfig {
-      ShadowsocksConfig.local(id: name, server: server, serverPort: port, password: password, method: cipher, plugin: plugin)
-    }
+//    public var shadowsocks: ShadowsocksConfig {
+//      .local(id: name, server: server, serverPort: port, password: password, method: cipher, mode: isUDPEnabled ? .both : .tcp, plugin: plugin)
+//    }
 
     public var cipher: ShadowsocksEnryptMethod
 
-    public var plugin: ShadowsocksPlugin?
+    public var plugin: PluginOptions?
 
     public var password: String
 
@@ -32,7 +69,7 @@ extension ClashProxy {
 
     public var name: String
 
-    public var udp: Bool
+    public var udp: Bool?
 
     private enum CodingKeys: String, CodingKey {
       case password
@@ -68,10 +105,10 @@ extension ClashProxy {
       if let plugin = try container.decodeIfPresent(String.self, forKey: .plugin) {
         switch plugin {
         case "obfs":
-          let obfs = try container.decode(Obfs.self, forKey: .pluginOpts)
+          let obfs = try container.decode(PluginOptions.Obfs.self, forKey: .pluginOpts)
           self.plugin = .obfs(obfs)
         case "v2ray-plugin":
-          let v2 = try container.decode(V2ray.self, forKey: .pluginOpts)
+          let v2 = try container.decode(PluginOptions.V2ray.self, forKey: .pluginOpts)
           self.plugin = .v2ray(v2)
         default:
           fatalError("Unknown plugin: \(plugin)")
@@ -79,10 +116,10 @@ extension ClashProxy {
       } else {
         self.plugin = nil
       }
-      udp = try container.decode(Bool.self, forKey: .udp)
+      udp = try container.decodeIfPresent(Bool.self, forKey: .udp)
     }
 
-    @inline(__always) private var clashPlugin: String {
+    private var clashPlugin: String {
       switch plugin.unsafelyUnwrapped {
       case .obfs:
         return "obfs"
@@ -108,7 +145,42 @@ extension ClashProxy {
           try container.encode(v, forKey: .pluginOpts)
         }
       }
-      try container.encode(udp, forKey: .udp)
+      try container.encodeIfPresent(udp, forKey: .udp)
+    }
+  }
+}
+
+public typealias ObfsMode = Obfs.Mode
+public typealias V2rayMode = V2ray.Mode
+
+extension ClashProxy.Shadowsocks {
+  public enum PluginOptions: Codable, Equatable {
+    case obfs(Obfs)
+
+    case v2ray(V2ray)
+
+    public struct Obfs: Codable, Equatable {
+      public var mode: ObfsMode
+      public var host: String?
+    }
+
+    public struct V2ray: Codable, Equatable {
+      public var mode: V2rayMode {
+        willSet {
+          precondition(newValue != .quic, "no QUIC now")
+        }
+      }
+      public var tls: Bool?
+      public var skipCertVerify: Bool?
+      public var host: String?
+      public var path: String?
+      public var mux: Bool?
+      public var headers: [String: String]?
+
+      private enum CodingKeys: String, CodingKey {
+        case mode, tls, host, path, mux, headers
+        case skipCertVerify = "skip-cert-verify"
+      }
     }
   }
 }

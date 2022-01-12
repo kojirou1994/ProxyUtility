@@ -58,13 +58,6 @@ let package = Package(
       ]
     ),
     .target(
-      name: "SurgeSupport",
-      dependencies: [
-        "ProxyProtocol",
-        "ShadowsocksProtocol"
-      ]
-    ),
-    .target(
       name: "QuantumultSupport",
       dependencies: [
         "ClashSupport"
@@ -74,7 +67,6 @@ let package = Package(
       name: "ProxySubscription",
       dependencies: [
         "ProxyUtility",
-        "SurgeSupport",
         "URLFileManager",
         "ClashSupport",
         "Yams"

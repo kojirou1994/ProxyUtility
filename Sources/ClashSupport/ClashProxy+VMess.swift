@@ -109,19 +109,16 @@ extension ClashProxy {
 
 extension ClashProxy.VMess {
   public init(_ vmess: VMess) {
-    name = vmess.ps
-    server = vmess.add
+    name = vmess.id
+    server = vmess.server
     port = vmess.port.value
-    uuid = vmess.id
+    uuid = vmess.uuid
     alterId = vmess.aid.value
     cipher = .auto
     udp = true
     tls = vmess.tls == "tls"
-    //            skipCertVerify = false
     network = Network(rawValue: vmess.net)
-
-//    wsHeaders = .init(host: vmess.host)
-//    wsPath = vmess.path
+    wsOptions = .init(path: vmess.path, headers: .init(host: vmess.host))
   }
 }
 
@@ -187,8 +184,7 @@ extension ClashProxy.VMess {
 
 extension VMess {
   public init(_ vmess: ClashProxy.VMess) {
-
-    self.init(v: 2, ps: vmess.name, add: vmess.server, port: .init(vmess.port),
+    self.init(version: 2, id: vmess.name, server: vmess.server, port: .init(vmess.port),
               uuid: vmess.uuid, aid: .init(vmess.alterId), net: "ws", type: "",
               host: vmess.wsOptions?.headers?.host ?? "itunes.com", path: vmess.wsOptions?.path ?? "", tls: vmess.tls == true ? "tls" : "")
   }

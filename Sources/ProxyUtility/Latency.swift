@@ -1,5 +1,5 @@
 import Foundation
-import KwiftExtension
+import ProxyInfo
 
 public enum ProxyLatency: CustomStringConvertible {
   case untested

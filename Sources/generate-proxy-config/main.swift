@@ -9,6 +9,7 @@ import ProxyRule
 import Yams
 import ArgumentParser
 import QuantumultSupport
+import Precondition
 
 enum ConfigFormat: String, ExpressibleByArgument, CaseIterable {
   case clash

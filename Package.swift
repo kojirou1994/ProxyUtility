@@ -18,7 +18,9 @@ let package = Package(
   ],
   dependencies: [
     .package(url: "https://github.com/kojirou1994/MaxMindDB.git", from: "1.0.3"),
-    .package(url: "https://github.com/kojirou1994/Kwift.git", from: "0.8.0"),
+    .package(url: "https://github.com/kojirou1994/Kwift.git", from: "1.0.0"),
+    .package(url: "https://github.com/kojirou1994/Precondition.git", from: "1.0.0"),
+    .package(url: "https://github.com/kojirou1994/ProxyInfo.git", from: "0.0.1"),
     .package(url: "https://github.com/kojirou1994/URLFileManager.git", from: "0.0.3"),
     .package(url: "https://github.com/jpsim/Yams.git", from: "3.0.0"),
     .package(url: "https://github.com/swift-extras/swift-extras-base64.git", from: "0.7.0"),
@@ -48,7 +50,8 @@ let package = Package(
       dependencies: [
         "ShadowsocksProtocol",
         "V2RayProtocol",
-        "MaxMindDB"
+        "MaxMindDB",
+        "ProxyInfo",
       ]
     ),
     .target(
@@ -97,6 +100,7 @@ let package = Package(
       dependencies: [
         "ProxyWorldUtility",
         "QuantumultSupport",
+        "Precondition",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]
     ),

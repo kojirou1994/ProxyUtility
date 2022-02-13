@@ -42,7 +42,9 @@ public struct ClashConfig: Codable, Equatable {
 
   public var tun: ClashTun?
 
-//  public var ruleProviders: [String: RuleProvider]?
+  public var script: Script?
+
+  public var ruleProviders: [String: RuleProvider]?
 
   private enum CodingKeys: String, CodingKey {
     case httpPort = "port"
@@ -69,7 +71,8 @@ public struct ClashConfig: Codable, Equatable {
     case rules
     case tun
     case routingMark = "routing-mark"
-//    case ruleProviders = "rule-providers"
+    case script
+    case ruleProviders = "rule-providers"
   }
 
   public init(
@@ -265,6 +268,11 @@ extension ClashConfig {
     }
   }
 
+  public struct Script: Codable, Equatable {
+    public var code: String?
+    public var shortcuts: [String: String]?
+  }
+
   public struct ProxyProvider: Codable, Equatable {
     public enum ProviderType: String, Codable, Equatable {
       case http
@@ -290,26 +298,31 @@ extension ClashConfig {
     }
   }
 
-//  public struct RuleProvider: Codable {
-//    public enum Behavior: String, Codable {
-//      case domain
-//      case ipcidr
-//      case classical
-//    }
-//
-//    public var behavior: Behavior
-//
-//    public var path: String
-//
-//    public var url: String?
-//
-//  }
+  public struct RuleProvider: Codable, Equatable {
+    public enum Behavior: String, Codable, Equatable, CaseIterable {
+      case domain
+      case ipcidr
+      case classical
+    }
+    public enum ProviderType: String, Codable, Equatable, CaseIterable {
+      case http
+      case file
+    }
+
+    public var behavior: Behavior
+    public var type: ProviderType
+    public var url: String?
+    public var interval: Int?
+    public var path: String
+
+  }
 
   public enum Mode: String, Codable, CaseIterable, Equatable {
     case rule
     case global
     case direct
-//    case script
+    /// premium only
+    case script = "Script"
   }
 
   public enum LogLevel: String, Codable, CaseIterable, Equatable {
@@ -328,10 +341,12 @@ extension ClashConfig {
 
     public var storeSelected: Bool
     public var storaFakeIP: Bool
+    public var tracing: Bool?
 
     private enum CodingKeys: String, CodingKey {
       case storeSelected = "store-selected"
       case storaFakeIP = "store-fake-ip"
+      case tracing
     }
   }
 }

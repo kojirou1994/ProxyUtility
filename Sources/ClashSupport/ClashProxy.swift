@@ -1,5 +1,4 @@
 import Foundation
-import ProxyUtility
 
 public enum ClashProxy: Codable, Equatable {
 
@@ -21,19 +20,6 @@ public enum ClashProxy: Codable, Equatable {
     case ssr
 
     public var id: Self { self }
-  }
-
-  public init(_ proxy: ProxyConfig) {
-    switch proxy {
-    case .socks5(let v):
-      self = .socks5(.init(name: v.id, server: v.server, port: v.port, tls: false, username: v.username, password: v.password, skipCertVerify: v.skipCertVerify, udp: v.udp))
-    case .ss(let v):
-      self = .shadowsocks(.init(v))
-    case .vmess(let v):
-      self = .vmess(.init(v))
-    case .ssr(let v):
-      self = .ssr(.init(v))
-    }
   }
 
   public init(from decoder: Decoder) throws {

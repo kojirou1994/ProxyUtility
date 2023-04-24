@@ -1,6 +1,3 @@
-import ProxyUtility
-import V2RayProtocol
-
 extension ClashProxy {
   public struct VMess: Codable, Equatable, ClashUDPFeature, ClashTLSFeature {
 
@@ -108,37 +105,33 @@ extension ClashProxy {
 }
 
 extension ClashProxy.VMess {
-  public init(_ vmess: VMess) {
-    name = vmess.id
-    server = vmess.server
-    port = vmess.port.value
-    uuid = vmess.uuid
-    alterId = vmess.aid.value
-    cipher = .auto
-    udp = true
-    tls = vmess.tls == "tls"
-    network = Network(rawValue: vmess.net)
-    wsOptions = .init(path: vmess.path, headers: .init(host: vmess.host))
-  }
-}
 
-extension ClashProxy.VMess {
-
-  public enum Cipher: String, Codable, CaseIterable, Equatable {
+  public enum Cipher: String, Codable, CaseIterable, Equatable, CustomStringConvertible {
     case auto
     case aes_128_gcm = "aes-128-gcm"
     case chacha20_poly1305 = "chacha20-poly1305"
     case none
+
+    public var description: String { rawValue }
   }
 
-  public enum Network: String, Codable {
+  public enum Network: String, Codable, CustomStringConvertible {
     case ws
     case h2
     case http
     case grpc
+
+    public var description: String { rawValue }
   }
 
   public struct WsOptions: Codable, Equatable {
+    public init(path: String? = nil, headers: ClashProxy.VMess.WsHeaders? = nil, maxEarlyData: Int? = nil, earlyDataHeaderName: String? = nil) {
+      self.path = path
+      self.headers = headers
+      self.maxEarlyData = maxEarlyData
+      self.earlyDataHeaderName = earlyDataHeaderName
+    }
+
     public var path: String?
     public var headers: WsHeaders?
     public var maxEarlyData: Int?
@@ -179,19 +172,5 @@ extension ClashProxy.VMess {
     private enum CodingKeys: String, CodingKey {
       case host = "Host"
     }
-  }
-}
-
-extension VMess {
-  public init(_ vmess: ClashProxy.VMess) {
-    self.init(version: 2, id: vmess.name, server: vmess.server, port: .init(vmess.port),
-              uuid: vmess.uuid, aid: .init(vmess.alterId), net: "ws", type: "",
-              host: vmess.wsOptions?.headers?.host ?? "itunes.com", path: vmess.wsOptions?.path ?? "", tls: vmess.tls == true ? "tls" : "")
-  }
-}
-
-extension ProxyConfig {
-  public init(_ vmess: ClashProxy.VMess) {
-    self = .vmess(.init(vmess))
   }
 }

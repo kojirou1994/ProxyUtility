@@ -125,16 +125,7 @@ public enum ProxySubscriptionType: String, Codable, CaseIterable, Identifiable {
           var proxies: [ClashProxy]?
         }
         let decoded = try Self.yamlDecoder.decode(_ClashProxyConfig.self, from: String(decoding: data, as: UTF8.self), userInfo: .init())
-        return decoded.proxies?.compactMap { (clashProxy) -> ProxyConfig? in
-          switch clashProxy {
-          case .vmess(let vmess):
-            return .init(vmess)
-          case .ssr(let ssr):
-          return .init(ssr)
-          default: break
-          }
-          return nil
-        } ?? []
+        return decoded.proxies?.map { ProxyConfig.clash($0) } ?? []
       } catch {
         #if DEBUG
         print("Failed to decode clash config, error: \(error)")

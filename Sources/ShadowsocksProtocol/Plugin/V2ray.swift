@@ -59,8 +59,8 @@ public struct V2ray: ShadowsocksPluginProtocol, Equatable, Codable {
     .init(mode: mode, tls: tls, mux: true, type: .server, path: "", host: host)
   }
 
-  public static func local(mode: Mode, tls: Bool, host: String) -> V2ray {
-    .init(mode: mode, tls: tls, mux: true, type: .local, path: "", host: host)
+  public static func local(mode: Mode, tls: Bool, host: String, path: String) -> V2ray {
+    .init(mode: mode, tls: tls, mux: true, type: .local, path: path, host: host)
   }
 
   private init(mode: Mode, tls: Bool, mux: Bool,

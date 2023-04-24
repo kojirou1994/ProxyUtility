@@ -1,5 +1,4 @@
 import ShadowsocksProtocol
-import ProxyUtility
 
 extension ClashProxy {
   public struct ShadowsocksR: Codable, Equatable, ClashUDPFeature {
@@ -74,8 +73,8 @@ extension ClashProxy.ShadowsocksR {
   }
 }
 
-extension ProxyConfig {
-  public init(_ ssr: ClashProxy.ShadowsocksR) {
-    self = .ssr(.init(ssr))
-  }
-}
+//extension ProxyConfig {
+//  public init(_ ssr: ClashProxy.ShadowsocksR) {
+//    self = .ssr(.init(ssr))
+//  }
+//}

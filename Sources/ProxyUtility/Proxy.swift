@@ -1,8 +1,9 @@
 import Foundation
+import V2RayProtocol
 import MaxMindDB
 import ProxyProtocol
 import ShadowsocksProtocol
-import V2RayProtocol
+import ClashSupport
 
 public struct Proxy: Equatable {
 
@@ -51,15 +52,7 @@ public enum ProxyConfig: Equatable, UriRepresentable {
   case ssr(ShadowsocksRConfig)
   case socks5(Socks5)
   case vmess(VMess)
-
-  //    public var value: ProxyProtocol {
-  //        switch self {
-  //        case .ss(let v):
-  //            return v
-  //        case .ssr(let v):
-  //            return v
-  //        }
-  //    }
+  case clash(ClashProxy)
 
   public var id: String {
     switch self {
@@ -67,6 +60,7 @@ public enum ProxyConfig: Equatable, UriRepresentable {
     case .ss(let v): return v.id
     case .ssr(let v): return v.id
     case .vmess(let v): return v.id
+    case .clash(let v): return v.name
     }
   }
 
@@ -76,6 +70,7 @@ public enum ProxyConfig: Equatable, UriRepresentable {
     case .ss(let v): return v.uri
     case .ssr(let v): return v.uri
     case .vmess(let v): return v.uri
+    case .clash: fatalError()
     }
   }
 
@@ -85,6 +80,7 @@ public enum ProxyConfig: Equatable, UriRepresentable {
     case .ss(let v): return v.server
     case .ssr(let v): return v.server
     case .vmess(let v): return v.server
+    case .clash(let v): return v.server
     }
   }
 
@@ -94,6 +90,7 @@ public enum ProxyConfig: Equatable, UriRepresentable {
     case .ss(let v): return v.localExecutable
     case .ssr(let v): return v.localExecutable
     case .vmess(let v): return v.localExecutable
+    case .clash: fatalError()
     }
   }
 
@@ -103,6 +100,7 @@ public enum ProxyConfig: Equatable, UriRepresentable {
     case .ss(let v): return v.localPort
     case .ssr(let v): return v.localPort
     case .vmess(let v): return v.localPort
+    case .clash: fatalError()
     }
   }
 
@@ -148,3 +146,51 @@ extension String {
     return ip.isEmpty ? nil: ip
   }//end func
 }//end extension
+
+extension ClashProxy {
+  public init(_ proxy: ProxyConfig) {
+    switch proxy {
+    case .socks5(let v):
+      self = .socks5(.init(name: v.id, server: v.server, port: v.port, tls: false, username: v.username, password: v.password, skipCertVerify: v.skipCertVerify, udp: v.udp))
+    case .ss(let v):
+      self = .shadowsocks(.init(v))
+    case .vmess(let v):
+      self = .vmess(.init(v))
+    case .ssr(let v):
+      self = .ssr(.init(v))
+    case .clash(let v):
+      self = v
+    }
+  }
+}
+
+extension ClashProxy.VMess {
+  public init(_ vmess: VMess) {
+    fatalError("wrong conversion")
+    name = vmess.id
+    server = vmess.server
+    port = vmess.port.value
+    uuid = vmess.uuid
+    alterId = vmess.aid.value
+    cipher = .auto
+    udp = true
+    tls = vmess.tls == "tls"
+    network = Network(rawValue: vmess.net)
+    wsOptions = .init(path: vmess.path, headers: .init(host: vmess.host))
+  }
+}
+
+extension VMess {
+  public init(_ vmess: ClashProxy.VMess) {
+    fatalError("wrong conversion")
+    self.init(version: 2, id: vmess.name, server: vmess.server, port: .init(vmess.port),
+              uuid: vmess.uuid, aid: .init(vmess.alterId), net: "ws", type: "",
+              host: vmess.wsOptions?.headers?.host ?? "itunes.com", path: vmess.wsOptions?.path ?? "", tls: vmess.tls == true ? "tls" : "")
+  }
+}
+
+extension ProxyConfig {
+  public init(_ vmess: ClashProxy.VMess) {
+    self = .vmess(.init(vmess))
+  }
+}

@@ -1,4 +1,4 @@
-// swift-tools-version:5.2
+// swift-tools-version: 5.7
 
 import PackageDescription
 
@@ -52,12 +52,13 @@ let package = Package(
         "V2RayProtocol",
         "MaxMindDB",
         "ProxyInfo",
+        "ClashSupport",
       ]
     ),
     .target(
       name: "ClashSupport",
       dependencies: [
-        "ProxyUtility"
+        "ShadowsocksProtocol",
       ]
     ),
     .target(
@@ -95,7 +96,7 @@ let package = Package(
         "ProxySubscription"
       ]
     ),
-    .target(
+    .executableTarget(
       name: "generate-proxy-config",
       dependencies: [
         "ProxyWorldUtility",
@@ -104,7 +105,7 @@ let package = Package(
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]
     ),
-    .target(
+    .executableTarget(
       name: "generate-rule",
       dependencies: [
         "ProxyRule",
@@ -114,6 +115,6 @@ let package = Package(
     ),
     .testTarget(
       name: "ProxyUtilityTests",
-      dependencies: ["ProxyUtility", "ProxySubscription", "ProxyRule"]),
+      dependencies: ["ProxyUtility", "ProxySubscription", "ProxyRule", "ProxyWorldUtility"]),
   ]
 )

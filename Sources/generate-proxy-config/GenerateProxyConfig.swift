@@ -18,6 +18,7 @@ enum ConfigFormat: String, ExpressibleByArgument, CaseIterable {
   case qxFilter
 }
 
+@main
 struct GenerateProxyConfig: ParsableCommand {
 
   @Option(name: .shortAndLong)
@@ -25,6 +26,9 @@ struct GenerateProxyConfig: ParsableCommand {
 
   @Option(name: .shortAndLong, help: "Available: \(ConfigFormat.allCases.map(\.rawValue).joined(separator: ", "))")
   var format: ConfigFormat
+
+  @Flag
+  var verbose: Bool = false
 
   @Argument()
   var configPath: String
@@ -54,6 +58,11 @@ struct GenerateProxyConfig: ParsableCommand {
         }
         print("Totally \(content.configs.count) nodes.")
         proxyCache[subscription.id.uuidString] = content.configs
+        if verbose {
+          content.configs.forEach { config in
+            print(config)
+          }
+        }
       } catch {
         print("Error while updating subscription \(subscription.name), \(error)")
       }
@@ -104,6 +113,3 @@ struct GenerateProxyConfig: ParsableCommand {
     try outputString.write(to: outputURL, atomically: true, encoding: .utf8)
   }
 }
-
-
-GenerateProxyConfig.main()

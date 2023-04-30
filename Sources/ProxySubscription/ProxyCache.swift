@@ -86,6 +86,7 @@ public struct SubscriptionContent {
 public enum ProxySubscriptionType: String, Codable, CaseIterable, Identifiable {
   case surge
   case ssr
+  /// eg. one node per line, all encoded base64
   case plain
   case ssd
   case vmess

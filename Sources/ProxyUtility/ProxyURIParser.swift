@@ -2,13 +2,15 @@ import Foundation
 import ProxyProtocol
 import ShadowsocksProtocol
 import V2RayProtocol
+import ClashSupport
 
 // https://shadowsocks.org/en/spec/SIP002-URI-Scheme.html
 
 public struct ProxyURIParser {
 
+  // TODO: provide extra info: server name if none, is udp enabled by default
   public static func parse(uri: String) -> ProxyConfig? {
-    // ss or ssr
+    // ss or ssr or trojan
     if let url = URLComponents(string: uri) {
       if url.scheme == "ss" {
         if let host = url.host,
@@ -102,6 +104,15 @@ public struct ProxyURIParser {
               id: host, server: host, server_port: port, password: password, method: method,
               protocol: protoc, obfs: obfs))
         }
+      } else if url.scheme == "trojan",
+                let host = url.host, let port = url.port,
+                let password = url.user {
+        // trojan://password@host:port?allowInsecure=[bool]&peer=[string]&sni=[string][ "#" tag ]
+        let sni = url.queryItems?.first(where: { $0.name == "sni "})?.value
+        let allowInsecure = url.queryItems?.first(where: { $0.name == "allowInsecure"})?.value
+        assert(allowInsecure == "0" || allowInsecure == "1")
+        let node = ClashProxy.Trojan.init(name: url.fragment ?? host, server: host, port: port, password: password, udp: nil, sni: sni, alpn: nil, skipCertVerify: allowInsecure == "1", network: nil, grpcOptions: nil, wsOptions: nil)
+        return .clash(.trojan(node))
       }
     }
     if uri.starts(with: "vmess://"), case let body = String(uri.dropFirst(8)),
@@ -131,8 +142,8 @@ public struct ProxyURIParser {
       decodedString = data.utf8String
     }
     return decodedString
-      .split(separator: "\n")
-      .compactMap { ProxyURIParser.parse(uri: String($0)) }
+      .components(separatedBy: .newlines)
+      .compactMap { ProxyURIParser.parse(uri: $0) }
   }
 }
 

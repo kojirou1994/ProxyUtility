@@ -80,7 +80,7 @@ extension ProxyWorldConfiguration {
       mainProxyName: String,
       userProxyGroupName: String,
       finalDirect: Bool, logLevel: ClashConfig.LogLevel, allowLan: Bool,
-      httpPort: Int, socksPort: Int, apiPort: Int) {
+      httpPort: Int?, socksPort: Int?, apiPort: Int) {
       self.mainProxyGroupName = mainProxyName
       self.userProxyGroupName = userProxyGroupName
       self.finalDirect = finalDirect
@@ -105,8 +105,8 @@ extension ProxyWorldConfiguration {
 
     public var logLevel: ClashConfig.LogLevel
     public var allowLan: Bool
-    public var httpPort: Int
-    public var socksPort: Int
+    public var httpPort: Int?
+    public var socksPort: Int?
     public var mixedPort: Int?
     public var apiPort: Int
     public var apiBindAddress: String?

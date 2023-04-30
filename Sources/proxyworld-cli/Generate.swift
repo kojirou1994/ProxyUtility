@@ -18,8 +18,7 @@ enum ConfigFormat: String, ExpressibleByArgument, CaseIterable {
   case qxFilter
 }
 
-@main
-struct GenerateProxyConfig: ParsableCommand {
+struct Generate: ParsableCommand {
 
   @Option(name: .shortAndLong)
   var output: String

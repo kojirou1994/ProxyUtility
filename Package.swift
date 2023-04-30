@@ -15,6 +15,7 @@ let package = Package(
     .library(name: "ProxyRule", targets: ["ProxyRule"]),
     .library(name: "ProxyWorldUtility", targets: ["ProxyWorldUtility"]),
     .library(name: "QuantumultSupport", targets: ["QuantumultSupport"]),
+    .executable(name: "proxyworld-cli", targets: ["proxyworld-cli"]),
   ],
   dependencies: [
     .package(url: "https://github.com/kojirou1994/MaxMindDB.git", from: "1.0.3"),
@@ -97,20 +98,12 @@ let package = Package(
       ]
     ),
     .executableTarget(
-      name: "generate-proxy-config",
+      name: "proxyworld-cli",
       dependencies: [
         "ProxyWorldUtility",
         "QuantumultSupport",
         "Precondition",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
-      ]
-    ),
-    .executableTarget(
-      name: "generate-rule",
-      dependencies: [
-        "ProxyRule",
-        "Yams",
-        .product(name: "KwiftExtension", package: "Kwift")
       ]
     ),
     .testTarget(

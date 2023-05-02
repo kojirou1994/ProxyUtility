@@ -10,10 +10,16 @@ import SystemUp
 public struct ProxyWorldProxy: Identifiable, Equatable, Codable {
   public let id: UUID
   public let proxy: ClashProxy
+//  public var alterHosts: [AlterIP]
 
   public init(proxy: ClashProxy) {
     self.id = .init()
     self.proxy = proxy
+  }
+
+  public struct AlterIP: Equatable, Codable {
+    public let host: String
+    public let name: String?
   }
 }
 
@@ -30,29 +36,56 @@ public enum PolicySwitchCutMethod: String, Codable, Equatable, CaseIterable, Ide
   }
 }
 
-public struct ProxyWorldSubscription: Identifiable, Codable, Equatable, Hashable {
-  public var id: UUID
+extension ClashConfig.ProxyGroup.ProxyGroupType: Identifiable {
+  public var id: Self { self }
+}
+
+public struct ProxyNodeSubscription: Identifiable, Codable, Equatable, Hashable {
+  public let id: UUID
   public var name: String
   public var url: URL
   public var type: ProxySubscriptionType
-  public var generateAutoGroup: Bool
-  public var generateFallbackGroup: Bool
+  public var autogen: Set<ClashConfig.ProxyGroup.ProxyGroupType>
 
   public init(name: String, url: URL, type: ProxySubscriptionType,
-              generateAutoGroup: Bool, generateFallbackGroup: Bool) {
+              autogen: Set<ClashConfig.ProxyGroup.ProxyGroupType>) {
     self.name = name
     self.url = url
     self.type = type
-    self.generateAutoGroup = generateAutoGroup
-    self.generateFallbackGroup = generateFallbackGroup
+    self.autogen = autogen
     id = .init()
   }
+}
+
+public struct StorageConfig: Codable, Equatable {
+  public var rules: [RuleCollection]
+  public var ruleSubscriptions: [ProxyWorldRuleSubscription]
+
+  public var proxies: [ProxyWorldProxy]
+  public var subscriptions: [ProxyNodeSubscription]
+
+}
+
+public struct InstanceConfig: Codable, Equatable {
+  public let id: UUID
+  public var name: String
+  public var dns: ClashConfig.ClashDNS
+  public var normal: ProxyWorldConfiguration.NormalConfiguration
+
+  public var rules: [InstanceRule]
+  public enum InstanceRule: Codable, Equatable {
+    case subscription(UUID, overridePolicies: [RuleCollectionOverridePolicy])
+    case collection(UUID)
+  }
+
+  public var enabledProxies: [UUID]
+  public var enabledSubscriptions: [UUID]
 }
 
 public struct ProxyWorldConfiguration: Codable, Equatable {
   public init(
     rules: [RuleCollection], ruleSubscriptions: [ProxyWorldRuleSubscription],
-    proxies: [ProxyWorldProxy], subscriptions: [ProxyWorldSubscription],
+    proxies: [ProxyWorldProxy], subscriptions: [ProxyNodeSubscription],
     dns: ClashConfig.ClashDNS, normal: ProxyWorldConfiguration.NormalConfiguration) {
     self.rules = rules
     self.ruleSubscriptions = ruleSubscriptions
@@ -66,7 +99,7 @@ public struct ProxyWorldConfiguration: Codable, Equatable {
   public var ruleSubscriptions: [ProxyWorldRuleSubscription]
 
   public var proxies: [ProxyWorldProxy]
-  public var subscriptions: [ProxyWorldSubscription]
+  public var subscriptions: [ProxyNodeSubscription]
 
   public var dns: ClashConfig.ClashDNS
   public var normal: NormalConfiguration
@@ -105,6 +138,7 @@ extension ProxyWorldConfiguration {
     // rule
     public var finalDirect: Bool
     public var autoAddLanRules: Bool = true
+    public var addDirectToMainProxy: Bool = true
 
     public var logLevel: ClashConfig.LogLevel
     public var allowLan: Bool
@@ -152,13 +186,11 @@ extension ProxyWorldConfiguration {
     let fallbackGroupNameFormat: String
   }
 
-  public func generateClash(
-    baseConfig: ClashConfig,
-    mode: ClashConfig.Mode,
-    ruleSubscriptionCache: [String : RuleProvider],
-    proxySubscriptionCache: [String : [ProxyConfig]],
-    options: GenerateOptions,
-    fallback: (ProxyConfig) -> ClashProxy? = { _ in nil } ) -> ClashConfig {
+  public func generateClash(baseConfig: ClashConfig, mode: ClashConfig.Mode,
+                            ruleSubscriptionCache: [String : RuleProvider],
+                            proxySubscriptionCache: [String : [ProxyConfig]],
+                            options: GenerateOptions,
+                            fallback: (ProxyConfig) -> ClashProxy? = { _ in nil } ) -> ClashConfig {
 
     var proxyGroup: [ClashConfig.ProxyGroup] = []
     var outputProxies = [ClashProxy]()
@@ -188,14 +220,17 @@ extension ProxyWorldConfiguration {
         print("No available nodes in subscription: \(subscription.name)")
       } else {
         let groupName = availableProxies.keys.makeUniqueName(basename: subscription.name, keyPath: \.self)
-        availableProxies[groupName] = groupProxies
-        if subscription.generateAutoGroup {
+        if subscription.autogen.contains(.select) {
+          availableProxies[groupName] = groupProxies
+        }
+        if subscription.autogen.contains(.urlTest) {
+          // TODO: maybe just use replace
           let genName = groupName.withCString { groupName in
             try! LazyCopiedCString(format: options.urlTestGroupNameFormat, groupName).string
           }
           urlTestProxies[genName] = groupProxies
         }
-        if subscription.generateFallbackGroup {
+        if subscription.autogen.contains(.fallback) {
           let genName = groupName.withCString { groupName in
             try! LazyCopiedCString(format: options.fallbackGroupNameFormat, groupName).string
           }
@@ -212,7 +247,11 @@ extension ProxyWorldConfiguration {
     }
     availableProxies.values.forEach { outputProxies.append(contentsOf: $0) }
 
-    var mainGroupProxies: [String] = [ClashConfig.directPolicy]
+    var mainGroupProxies = [String]()
+
+    if normal.addDirectToMainProxy {
+      mainGroupProxies.append(ClashConfig.directPolicy)
+    }
 
     // generate group for each subscription
 

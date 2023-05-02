@@ -121,52 +121,53 @@ struct Daemon: AsyncParsableCommand {
   var configPath: FilePath
 
   func run() async throws {
+    try await Task(priority: .background) {
+      // TODO: user custom work dir
+      let workDir = try FilePath(PosixEnvironment.get(key: "HOME").unwrap("no HOME env")).appending(".config/proxy-world")
 
-    // TODO: user custom work dir
-    let workDir = try FilePath(PosixEnvironment.get(key: "HOME").unwrap("no HOME env")).appending(".config/proxy-world")
+      try SystemFileManager.createDirectoryIntermediately(.absolute(workDir))
 
-    try SystemFileManager.createDirectoryIntermediately(.absolute(workDir))
+      let lockFilePath = workDir.appending(".lock")
+      let lockFile = try FileDescriptor.open(lockFilePath, .readOnly, options: [.create, .truncate], permissions: .fileDefault)
+      defer {
+        _ = FileSyscalls.unlock(lockFile)
+        try? lockFile.close()
+      }
 
-    let lockFilePath = workDir.appending(".lock")
-    let lockFile = try FileDescriptor.open(lockFilePath, .readOnly, options: [.create, .truncate], permissions: .fileDefault)
-    defer {
-      _ = FileSyscalls.unlock(lockFile)
-      try? lockFile.close()
-    }
+      do {
+        try FileSyscalls.lock(lockFile, flags: [.exclusive, .noBlock]).get()
+      } catch {
+        print("another daemon already running!")
+        throw ExitCode(1)
+      }
 
-    do {
-      try FileSyscalls.lock(lockFile, flags: [.exclusive, .noBlock]).get()
-    } catch {
-      print("another daemon already running!")
-      throw ExitCode(1)
-    }
+      let manager = try Manager(configPath: configPath)
 
-    let manager = try Manager(configPath: configPath)
-
-    if let reloadInterval {
-      Task {
-        let reloadInterval = Duration.seconds(reloadInterval)
-        while true {
-          try await Task.sleep(for: reloadInterval)
-          do {
-            if try await manager.reloadConfig() {
-              print("refresh because of updated")
-              try? await manager.refresh()
+      if let reloadInterval {
+        Task {
+          let reloadInterval = Duration.seconds(reloadInterval)
+          while true {
+            try await Task.sleep(for: reloadInterval)
+            do {
+              if try await manager.reloadConfig() {
+                print("refresh because of updated")
+                try? await manager.refresh()
+              }
+            } catch {
+              // cannot reload config
+              print("error while reloading config: \(error)")
             }
-          } catch {
-            // cannot reload config
-            print("error while reloading config: \(error)")
           }
         }
+      } else {
+        print("reload disabled")
       }
-    } else {
-      print("reload disabled")
-    }
 
-    let refreshInterval: Duration = .seconds(refreshInterval)
-    while true {
-      try? await manager.refresh()
-      try await Task.sleep(for: refreshInterval)
-    }
+      let refreshInterval: Duration = .seconds(refreshInterval)
+      while true {
+        try? await manager.refresh()
+        try await Task.sleep(for: refreshInterval)
+      }
+    }.value
   }
 }

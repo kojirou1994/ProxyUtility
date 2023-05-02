@@ -334,18 +334,18 @@ extension ClashConfig {
   }
 
   public struct Profile: Codable, Equatable {
-    public init(storeSelected: Bool = false, storaFakeIP: Bool = false) {
+    public init(storeSelected: Bool = false, storeFakeIP: Bool = false) {
       self.storeSelected = storeSelected
-      self.storaFakeIP = storaFakeIP
+      self.storeFakeIP = storeFakeIP
     }
 
     public var storeSelected: Bool
-    public var storaFakeIP: Bool
+    public var storeFakeIP: Bool
     public var tracing: Bool?
 
     private enum CodingKeys: String, CodingKey {
       case storeSelected = "store-selected"
-      case storaFakeIP = "store-fake-ip"
+      case storeFakeIP = "store-fake-ip"
       case tracing
     }
   }

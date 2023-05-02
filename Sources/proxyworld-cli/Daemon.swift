@@ -58,7 +58,7 @@ actor Manager {
 
   public func refresh() async throws {
     print(#function)
-    for subscription in config.subscriptions {
+    for subscription in config.shared.subscriptions {
       do {
         print("Start to update subscription \(subscription.name)")
         let responseData = try await load(url: subscription.url)
@@ -80,7 +80,7 @@ actor Manager {
       }
     }
 
-    for ruleSubscription in config.ruleSubscriptions {
+    for ruleSubscription in config.shared.ruleSubscriptions {
       do {
         print("Start to update rule subscription \(ruleSubscription.name)")
         let subscriptionData: Data

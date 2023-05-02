@@ -57,15 +57,6 @@ public struct ProxyNodeSubscription: Identifiable, Codable, Equatable, Hashable 
   }
 }
 
-public struct StorageConfig: Codable, Equatable {
-  public var rules: [RuleCollection]
-  public var ruleSubscriptions: [ProxyWorldRuleSubscription]
-
-  public var proxies: [ProxyWorldProxy]
-  public var subscriptions: [ProxyNodeSubscription]
-
-}
-
 public struct InstanceConfig: Codable, Equatable {
   public let id: UUID
   public var name: String
@@ -83,42 +74,37 @@ public struct InstanceConfig: Codable, Equatable {
 }
 
 public struct ProxyWorldConfiguration: Codable, Equatable {
-  public init(
-    rules: [RuleCollection], ruleSubscriptions: [ProxyWorldRuleSubscription],
-    proxies: [ProxyWorldProxy], subscriptions: [ProxyNodeSubscription],
-    dns: ClashConfig.ClashDNS, normal: ProxyWorldConfiguration.NormalConfiguration) {
-    self.rules = rules
-    self.ruleSubscriptions = ruleSubscriptions
-    self.subscriptions = subscriptions
-    self.dns = dns
-    self.normal = normal
-    self.proxies = proxies
-  }
 
-  public var rules: [RuleCollection]
-  public var ruleSubscriptions: [ProxyWorldRuleSubscription]
-
-  public var proxies: [ProxyWorldProxy]
-  public var subscriptions: [ProxyNodeSubscription]
+  public var shared: SharedData
 
   public var dns: ClashConfig.ClashDNS
   public var normal: NormalConfiguration
   //    var exterbak: ExternalProxyConfig
 }
+
 extension ProxyWorldConfiguration {
+
+  public struct SharedData: Codable, Equatable {
+    public var rules: [RuleCollection]
+    public var ruleSubscriptions: [ProxyWorldRuleSubscription]
+
+    public var proxies: [ProxyWorldProxy]
+    public var subscriptions: [ProxyNodeSubscription]
+  }
+
   public struct ExternalProxyConfig: Codable, Equatable {
     public var portStart: Int
     public var portBlacklist: [Int]
   }
 
   public struct NormalConfiguration: Codable, Equatable {
-    public init(
-      mainProxyName: String,
-      userProxyGroupName: String,
-      finalDirect: Bool, logLevel: ClashConfig.LogLevel, allowLan: Bool,
-      httpPort: Int?, socksPort: Int?, apiPort: Int) {
+    public init(mainProxyName: String, userProxyGroupName: String,
+                addDirectToMainProxy: Bool, finalDirect: Bool,
+                logLevel: ClashConfig.LogLevel, allowLan: Bool,
+                httpPort: Int?, socksPort: Int?, apiPort: Int) {
       self.mainProxyGroupName = mainProxyName
       self.userProxyGroupName = userProxyGroupName
+      self.addDirectToMainProxy = addDirectToMainProxy
       self.finalDirect = finalDirect
       self.logLevel = logLevel
       self.allowLan = allowLan
@@ -130,6 +116,7 @@ extension ProxyWorldConfiguration {
     // group
     public var mainProxyGroupName: String
     public var userProxyGroupName: String
+    public var addDirectToMainProxy: Bool
     //        var selectUseMainProxy: Bool
     //        var useSubGroupForSubcriptions = true
 
@@ -137,8 +124,6 @@ extension ProxyWorldConfiguration {
 
     // rule
     public var finalDirect: Bool
-    public var autoAddLanRules: Bool = true
-    public var addDirectToMainProxy: Bool = true
 
     public var logLevel: ClashConfig.LogLevel
     public var allowLan: Bool
@@ -202,7 +187,7 @@ extension ProxyWorldConfiguration {
     var urlTestProxies: [String: [ClashProxy]] = .init()
     var fallbackProxies: [String: [ClashProxy]] = .init()
 
-    for subscription in subscriptions {
+    for subscription in shared.subscriptions {
       var groupProxies = [ClashProxy]()
       let cachedNodes = proxySubscriptionCache[subscription.id.uuidString] ?? []
       for proxy in cachedNodes {
@@ -240,10 +225,10 @@ extension ProxyWorldConfiguration {
     }
 
     // User's custom proxies
-    if !proxies.isEmpty {
+    if !shared.proxies.isEmpty {
       let userProxyGroupName = availableProxies.keys.makeUniqueName(basename: normal.userProxyGroupName, keyPath: \.self)
 
-      availableProxies[userProxyGroupName] = proxies.map { $0.proxy }
+      availableProxies[userProxyGroupName] = shared.proxies.map { $0.proxy }
     }
     availableProxies.values.forEach { outputProxies.append(contentsOf: $0) }
 
@@ -330,11 +315,11 @@ extension ProxyWorldConfiguration {
 
     }
 
-    for ruleCollection in rules {
+    for ruleCollection in shared.rules {
       generateAndAddRuleGroup(ruleCollections: CollectionOfOne(ruleCollection))
     }
 
-    for ruleSubscription in ruleSubscriptions {
+    for ruleSubscription in shared.ruleSubscriptions {
       guard let cachedRuleProvider = ruleSubscriptionCache[ruleSubscription.id.uuidString] else {
         continue
       }

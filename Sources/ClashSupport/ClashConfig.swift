@@ -237,7 +237,7 @@ extension ClashConfig {
     }
 
     public init(enable: Bool, ipv6: Bool = false, listen: String? = nil,
-                nameserver: [String], fallback: [String],
+                nameserver: [String]? = nil, fallback: [String]? = nil,
                 fallbackFilter: FallbackFilter? = nil) {
       self.enable = enable
       self.ipv6 = ipv6

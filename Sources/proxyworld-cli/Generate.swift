@@ -3,7 +3,6 @@ import ProxyWorldUtility
 import KwiftExtension
 import ProxySubscription
 import ProxyUtility
-import URLFileManager
 import ClashSupport
 import ProxyRule
 import Yams

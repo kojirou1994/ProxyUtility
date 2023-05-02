@@ -3,7 +3,6 @@ import ProxyWorldUtility
 import KwiftExtension
 import ProxySubscription
 import ProxyUtility
-import URLFileManager
 import ClashSupport
 import ProxyRule
 import Yams
@@ -11,6 +10,7 @@ import ArgumentParser
 import QuantumultSupport
 import Precondition
 import SystemPackage
+import SystemUp
 import SystemFileManager
 
 private func _readConfig(configPath: FilePath) throws -> ProxyWorldConfiguration {
@@ -26,20 +26,23 @@ struct ClashProcessInfo {
 
 actor Manager {
 
-  let configPath: FilePath
-  var config: ProxyWorldConfiguration
+  private let configPath: FilePath
+  private var config: ProxyWorldConfiguration
 
   // MARK: Caches
   private let session = URLSession(configuration: .ephemeral)
-  var proxyCache = [String: [ProxyConfig]]()
-  var ruleCache = [String: RuleProvider]()
+  private var proxyCache = [String: [ProxyConfig]]()
+  private var ruleCache = [String: RuleProvider]()
 
-  init(configPath: FilePath) throws {
+  public init(configPath: FilePath) throws {
     self.configPath = configPath
     config = try _readConfig(configPath: configPath)
   }
 
-  func reloadConfig() throws -> Bool {
+
+  /// Reload config
+  /// - Returns: true if config changed
+  public func reloadConfig() throws -> Bool {
     print(#function)
     let newConfig = try _readConfig(configPath: configPath)
     let updated = newConfig != config
@@ -53,7 +56,7 @@ actor Manager {
     try await session.data(for: URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 20)).0
   }
 
-  func refresh() async throws {
+  public func refresh() async throws {
     print(#function)
     for subscription in config.subscriptions {
       do {
@@ -95,7 +98,7 @@ actor Manager {
     }
   }
 
-  func generateClash(
+  public func generateClash(
     baseConfig: ClashConfig,
     mode: ClashConfig.Mode,
     ruleGroupPrefix: String,
@@ -112,15 +115,34 @@ struct Daemon: AsyncParsableCommand {
   var reloadInterval: Int?
 
   @Option(help: "Refresh interval for subscription/rule")
-  var refreshInterval: Int = 1
+  var refreshInterval: Int = 600
 
   @Argument
   var configPath: FilePath
 
   func run() async throws {
+
+    // TODO: user custom work dir
+    let workDir = try FilePath(PosixEnvironment.get(key: "HOME").unwrap("no HOME env")).appending(".config/proxy-world")
+
+    try SystemFileManager.createDirectoryIntermediately(.absolute(workDir))
+
+    let lockFilePath = workDir.appending(".lock")
+    let lockFile = try FileDescriptor.open(lockFilePath, .readOnly, options: [.create, .truncate], permissions: .fileDefault)
+    defer {
+      _ = FileSyscalls.unlock(lockFile)
+      try? lockFile.close()
+    }
+
+    do {
+      try FileSyscalls.lock(lockFile, flags: [.exclusive, .noBlock]).get()
+    } catch {
+      print("another daemon already running!")
+      throw ExitCode(1)
+    }
+
     let manager = try Manager(configPath: configPath)
 
-    let refreshInterval: Duration = .seconds(refreshInterval)
     if let reloadInterval {
       Task {
         let reloadInterval = Duration.seconds(reloadInterval)
@@ -141,6 +163,7 @@ struct Daemon: AsyncParsableCommand {
       print("reload disabled")
     }
 
+    let refreshInterval: Duration = .seconds(refreshInterval)
     while true {
       try? await manager.refresh()
       try await Task.sleep(for: refreshInterval)

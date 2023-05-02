@@ -43,6 +43,9 @@ struct Generate: AsyncParsableCommand {
   @Flag(name: .shortAndLong)
   var verbose: Bool = false
 
+  @OptionGroup(title: "NAME GENERATION")
+  var options: GroupNameGenerateOptions
+
   @Argument
   var configPath: FilePath
 
@@ -57,13 +60,12 @@ struct Generate: AsyncParsableCommand {
 
     try await manager.refresh()
 
-    let clashConfig = await manager.generateClash(
+    let clashConfig = try await manager.generateClash(
       baseConfig: ClashConfig(mode: .rule),
       mode: .rule,
-//      tailDirectRules: Rule.normalLanRules,
-      ruleGroupPrefix: "[RULE] ",
-      urlTestGroupPrefix: "[BEST] ",
-      fallbackGroupPrefix: "[FALLBACK] ") { _ in nil }
+      options: .init(ruleGroupNameFormat: options.ruleGroupName, urlTestGroupNameFormat: options.urlTestGroupName, fallbackGroupNameFormat: options.fallbackGroupName),
+      fallback: { _ in nil }
+    )
 
     let outputString: String
     switch format {

@@ -101,11 +101,9 @@ actor Manager {
   public func generateClash(
     baseConfig: ClashConfig,
     mode: ClashConfig.Mode,
-    ruleGroupPrefix: String,
-    urlTestGroupPrefix: String,
-    fallbackGroupPrefix: String,
+    options: ProxyWorldConfiguration.GenerateOptions,
     fallback: (ProxyConfig) -> ClashProxy?) -> ClashConfig {
-      config.generateClash(baseConfig: baseConfig, mode: mode, ruleSubscriptionCache: ruleCache, proxySubscriptionCache: proxyCache, ruleGroupPrefix: ruleGroupPrefix, urlTestGroupPrefix: urlTestGroupPrefix, fallbackGroupPrefix: fallbackGroupPrefix, fallback: fallback)
+      config.generateClash(baseConfig: baseConfig, mode: mode, ruleSubscriptionCache: ruleCache, proxySubscriptionCache: proxyCache, options: options, fallback: fallback)
     }
 }
 

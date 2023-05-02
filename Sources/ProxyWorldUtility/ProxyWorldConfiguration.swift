@@ -3,6 +3,9 @@ import ClashSupport
 import ProxySubscription
 import ProxyUtility
 import ProxyRule
+import Precondition
+import CUtility
+import SystemUp
 
 public struct ProxyWorldProxy: Identifiable, Equatable, Codable {
   public let id: UUID
@@ -122,15 +125,40 @@ let defaultServerCheckUrl = "http://www.google.com/generate_204"
 let defaultServerCheckInterval = 300
 
 extension ProxyWorldConfiguration {
+
+  public struct GenerateOptions {
+    public struct FormatStringError: Error {
+      public let name: String
+      public let required: String
+    }
+
+    public init(ruleGroupNameFormat: String, urlTestGroupNameFormat: String, fallbackGroupNameFormat: String) throws {
+      try [
+        (ruleGroupNameFormat, "ruleGroupNameFormat"),
+        (urlTestGroupNameFormat, "urlTestGroupNameFormat"),
+        (fallbackGroupNameFormat, "fallbackGroupNameFormat"),
+      ].forEach { (format, name) in
+        if !format.contains("%s") {
+          throw FormatStringError(name: name, required: "%s")
+        }
+      }
+      self.ruleGroupNameFormat = ruleGroupNameFormat
+      self.urlTestGroupNameFormat = urlTestGroupNameFormat
+      self.fallbackGroupNameFormat = fallbackGroupNameFormat
+    }
+
+    let ruleGroupNameFormat: String
+    let urlTestGroupNameFormat: String
+    let fallbackGroupNameFormat: String
+  }
+
   public func generateClash(
     baseConfig: ClashConfig,
     mode: ClashConfig.Mode,
     ruleSubscriptionCache: [String : RuleProvider],
     proxySubscriptionCache: [String : [ProxyConfig]],
-    ruleGroupPrefix: String,
-    urlTestGroupPrefix: String,
-    fallbackGroupPrefix: String,
-    fallback: (ProxyConfig) -> ClashProxy?) -> ClashConfig {
+    options: GenerateOptions,
+    fallback: (ProxyConfig) -> ClashProxy? = { _ in nil } ) -> ClashConfig {
 
     var proxyGroup: [ClashConfig.ProxyGroup] = []
     var outputProxies = [ClashProxy]()
@@ -162,10 +190,16 @@ extension ProxyWorldConfiguration {
         let groupName = availableProxies.keys.makeUniqueName(basename: subscription.name, keyPath: \.self)
         availableProxies[groupName] = groupProxies
         if subscription.generateAutoGroup {
-          urlTestProxies[urlTestGroupPrefix + groupName] = groupProxies
+          let genName = groupName.withCString { groupName in
+            try! LazyCopiedCString(format: options.urlTestGroupNameFormat, groupName).string
+          }
+          urlTestProxies[genName] = groupProxies
         }
         if subscription.generateFallbackGroup {
-          fallbackProxies[fallbackGroupPrefix + groupName] = groupProxies
+          let genName = groupName.withCString { groupName in
+            try! LazyCopiedCString(format: options.fallbackGroupNameFormat, groupName).string
+          }
+          fallbackProxies[genName] = groupProxies
         }
       }
     }
@@ -223,7 +257,10 @@ extension ProxyWorldConfiguration {
     where T.Element == RuleCollection {
 
       for ruleCollection in ruleCollections {
-        let newSelectGroupName = proxyGroup.makeUniqueName(basename: ruleGroupPrefix + namePrefix + ruleCollection.name, keyPath: \.name)
+        let basename = (namePrefix + ruleCollection.name).withCString { groupName in
+          try! LazyCopiedCString(format: options.ruleGroupNameFormat, groupName).string
+        }
+        let newSelectGroupName = proxyGroup.makeUniqueName(basename: basename, keyPath: \.name)
         let selectGroup = ClashConfig.ProxyGroup.select(name: newSelectGroupName, proxies: ruleSelectGroupProxies)
 
         var matcherCount = [AbstractRulePolicy : Int]()

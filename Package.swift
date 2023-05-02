@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
   name: "ProxyUtility",
   platforms: [
-    .macOS(.v10_15)
+    .macOS(.v13),
   ],
   products: [
     .library(name: "ShadowsocksProtocol", targets: ["ShadowsocksProtocol"]),
@@ -23,9 +23,11 @@ let package = Package(
     .package(url: "https://github.com/kojirou1994/Precondition.git", from: "1.0.0"),
     .package(url: "https://github.com/kojirou1994/ProxyInfo.git", from: "0.0.1"),
     .package(url: "https://github.com/kojirou1994/URLFileManager.git", from: "0.0.3"),
+    .package(url: "https://github.com/kojirou1994/Executable.git", from: "0.5.0"),
+    .package(url: "https://github.com/kojirou1994/SystemUp.git", .branch("main")),
     .package(url: "https://github.com/jpsim/Yams.git", from: "3.0.0"),
     .package(url: "https://github.com/swift-extras/swift-extras-base64.git", from: "0.7.0"),
-    .package(url: "https://github.com/apple/swift-argument-parser.git", from: "0.0.1")
+    .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.0.0"),
   ],
   targets: [
     .target(
@@ -98,11 +100,22 @@ let package = Package(
       ]
     ),
     .executableTarget(
+      name: "generate-rule",
+      dependencies: [
+        "ProxyRule",
+        "Yams",
+        .product(name: "KwiftExtension", package: "Kwift"),
+      ]
+    ),
+    .executableTarget(
       name: "proxyworld-cli",
       dependencies: [
         "ProxyWorldUtility",
         "QuantumultSupport",
-        "Precondition",
+        .product(name: "Precondition", package: "Precondition"),
+        .product(name: "SystemUp", package: "SystemUp"),
+        .product(name: "SystemFileManager", package: "SystemUp"),
+        .product(name: "TSCExecutableLauncher", package: "Executable"),
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]
     ),

@@ -10,6 +10,7 @@ import Yams
 import ArgumentParser
 import QuantumultSupport
 import Precondition
+import SystemPackage
 
 enum ConfigFormat: String, ExpressibleByArgument, CaseIterable {
   case clash
@@ -18,80 +19,49 @@ enum ConfigFormat: String, ExpressibleByArgument, CaseIterable {
   case qxFilter
 }
 
-struct Generate: ParsableCommand {
+struct GroupNameGenerateOptions: ParsableArguments {
+  @Option
+  var ruleGroupName: String = "[RULE] %s"
 
-  @Option(name: .shortAndLong)
-  var output: String
+  @Option
+  var urlTestGroupName: String = "[BEST] %s"
+
+  @Option
+  var fallbackGroupName: String = "[FALLBACK] %s"
+}
+
+struct Generate: AsyncParsableCommand {
 
   @Option(name: .shortAndLong, help: "Available: \(ConfigFormat.allCases.map(\.rawValue).joined(separator: ", "))")
   var format: ConfigFormat
 
+//  @Flag(name: [.customShort("c"), .customLong("continue")],help: "Continue on network error")
+//  var continueOnError: Bool = false
+
   @Flag
+  var overwrite: Bool = false
+
+  @Flag(name: .shortAndLong)
   var verbose: Bool = false
 
-  @Argument()
-  var configPath: String
+  @Argument
+  var configPath: FilePath
 
-  func run() throws {
-    let fm = URLFileManager.default
-    let inputURL = URL(fileURLWithPath: configPath)
-    let outputURL = URL(fileURLWithPath: output)
-    try preconditionOrThrow(!fm.fileExistance(at: outputURL).exists, "Output existed!")
-    let config = try JSONDecoder().kwiftDecode(from: Data(contentsOf: inputURL), as: ProxyWorldConfiguration.self)
-    let session = URLSession(configuration: .ephemeral)
+  @Argument
+  var outputPath: FilePath
 
-    var proxyCache = [String: [ProxyConfig]]()
-    var ruleCache = [String: RuleProvider]()
+  func run() async throws {
+    let outputFD = try FileDescriptor.open(outputPath, .writeOnly, options: overwrite ? [.create, .truncate] : [.create, .exclusiveCreate], permissions: .fileDefault)
+    defer { try? outputFD.close() }
 
-    config.subscriptions.forEach { subscription in
-      do {
-        print("Start to update subscription \(subscription.name)")
-        let response = try session
-          .syncResultTask(with: URLRequest(url: subscription.url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 20))
-          .get()
+    let manager = try Manager(configPath: configPath)
 
-        let content = SubscriptionContent(subscription.type.decode(response.data))
-        print("Success!")
-        if content.metadata.hasUsefulInfo {
-          print("Information: \(content.metadata)")
-        }
-        print("Totally \(content.configs.count) nodes.")
-        proxyCache[subscription.id.uuidString] = content.configs
-        if verbose {
-          content.configs.forEach { config in
-            print(config)
-          }
-        }
-      } catch {
-        print("Error while updating subscription \(subscription.name), \(error)")
-      }
-    }
+    try await manager.refresh()
 
-    config.ruleSubscriptions.forEach { ruleSubscription in
-      do {
-        print("Start to update rule subscription \(ruleSubscription.name)")
-        let subscriptionData: Data
-        if ruleSubscription.isLocalFile {
-          subscriptionData = try Data(contentsOf: URL(fileURLWithPath: ruleSubscription.url))
-        } else {
-          subscriptionData = try session
-            .syncResultTask(with: URLRequest(url: URL(string: ruleSubscription.url)!, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 20))
-            .get().data
-        }
-        let decoded = try YAMLDecoder().decode(from: String(decoding: subscriptionData, as: UTF8.self)) as RuleProvider
-        print("Success!")
-        ruleCache[ruleSubscription.id.uuidString] = decoded
-      } catch {
-        print("Error while updating subscription \(ruleSubscription.name), \(error)")
-      }
-    }
-
-    let clashConfig = config.generateClash(
+    let clashConfig = await manager.generateClash(
       baseConfig: ClashConfig(mode: .rule),
       mode: .rule,
 //      tailDirectRules: Rule.normalLanRules,
-      ruleSubscriptionCache: ruleCache,
-      proxySubscriptionCache: proxyCache,
       ruleGroupPrefix: "[RULE] ",
       urlTestGroupPrefix: "[BEST] ",
       fallbackGroupPrefix: "[FALLBACK] ") { _ in nil }
@@ -109,6 +79,6 @@ struct Generate: ParsableCommand {
     }
 
     print("Writing...")
-    try outputString.write(to: outputURL, atomically: true, encoding: .utf8)
+    try outputFD.writeAll(outputString.utf8)
   }
 }

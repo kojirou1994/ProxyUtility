@@ -98,12 +98,11 @@ actor Manager {
     }
   }
 
-  public func generateClash(
+  public func generateClashConfigs(
     baseConfig: ClashConfig,
-    mode: ClashConfig.Mode,
     options: ProxyWorldConfiguration.GenerateOptions,
-    fallback: (ProxyConfig) -> ClashProxy?) -> ClashConfig {
-      config.generateClash(baseConfig: baseConfig, mode: mode, ruleSubscriptionCache: ruleCache, proxySubscriptionCache: proxyCache, options: options, fallback: fallback)
+    fallback: (ProxyConfig) -> ClashProxy?) -> [(ProxyWorldConfiguration.InstanceConfig, ClashConfig)] {
+      config.generateClashConfigs(baseConfig: baseConfig, ruleSubscriptionCache: ruleCache, proxySubscriptionCache: proxyCache, options: options, fallback: fallback)
     }
 }
 

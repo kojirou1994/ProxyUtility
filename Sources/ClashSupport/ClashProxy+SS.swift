@@ -40,6 +40,15 @@ extension ClashVerifyCertFeature {
 
 extension ClashProxy {
   public struct Shadowsocks: Codable, Equatable, ClashUDPFeature {
+    public init(cipher: ShadowsocksEnryptMethod, plugin: ClashProxy.Shadowsocks.PluginOptions? = nil, password: String, server: String, port: Int, name: String, udp: Bool? = nil) {
+      self.cipher = cipher
+      self.plugin = plugin
+      self.password = password
+      self.server = server
+      self.port = port
+      self.name = name
+      self.udp = udp
+    }
 
     public init(_ shadowsocks: ShadowsocksConfig) {
       self.cipher = shadowsocks.method
@@ -165,6 +174,16 @@ extension ClashProxy.Shadowsocks {
     }
 
     public struct V2ray: Codable, Equatable {
+      public init(mode: V2rayMode, tls: Bool? = nil, skipCertVerify: Bool? = nil, host: String? = nil, path: String? = nil, mux: Bool? = nil, headers: [String : String]? = nil) {
+        self.mode = mode
+        self.tls = tls
+        self.skipCertVerify = skipCertVerify
+        self.host = host
+        self.path = path
+        self.mux = mux
+        self.headers = headers
+      }
+
       public var mode: V2rayMode {
         willSet {
           precondition(newValue != .quic, "no QUIC now")

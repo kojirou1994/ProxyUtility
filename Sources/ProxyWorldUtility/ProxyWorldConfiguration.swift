@@ -12,8 +12,8 @@ public struct ProxyWorldProxy: Identifiable, Equatable, Codable {
   public let proxy: ClashProxy
 //  public var alterHosts: [AlterIP]
 
-  public init(proxy: ClashProxy) {
-    self.id = .init()
+  public init(id: UUID = .init(), proxy: ClashProxy) {
+    self.id = id
     self.proxy = proxy
   }
 
@@ -57,28 +57,11 @@ public struct ProxyNodeSubscription: Identifiable, Codable, Equatable, Hashable 
   }
 }
 
-public struct InstanceConfig: Codable, Equatable {
-  public let id: UUID
-  public var name: String
-  public var dns: ClashConfig.ClashDNS
-  public var normal: ProxyWorldConfiguration.NormalConfiguration
-
-  public var rules: [InstanceRule]
-  public enum InstanceRule: Codable, Equatable {
-    case subscription(UUID, overridePolicies: [RuleCollectionOverridePolicy])
-    case collection(UUID)
-  }
-
-  public var enabledProxies: [UUID]
-  public var enabledSubscriptions: [UUID]
-}
-
 public struct ProxyWorldConfiguration: Codable, Equatable {
 
   public var shared: SharedData
 
-  public var dns: ClashConfig.ClashDNS
-  public var normal: NormalConfiguration
+  public var instances: [InstanceConfig]
   //    var exterbak: ExternalProxyConfig
 }
 
@@ -92,6 +75,22 @@ extension ProxyWorldConfiguration {
     public var subscriptions: [ProxyNodeSubscription]
   }
 
+  public struct InstanceConfig: Codable, Equatable {
+    public let id: UUID
+    public var name: String
+    public var dns: ClashConfig.ClashDNS
+    public var normal: ProxyWorldConfiguration.NormalConfiguration
+
+    public var rules: [InstanceRule]
+    public enum InstanceRule: Codable, Equatable {
+      case subscription(UUID, overridePolicies: [RuleCollectionOverridePolicy])
+      case collection(UUID)
+    }
+
+    public var enabledProxies: Set<UUID>
+    public var enabledSubscriptions: Set<UUID>
+  }
+
   public struct ExternalProxyConfig: Codable, Equatable {
     public var portStart: Int
     public var portBlacklist: [Int]
@@ -101,6 +100,7 @@ extension ProxyWorldConfiguration {
     public init(mainProxyName: String, userProxyGroupName: String,
                 addDirectToMainProxy: Bool, finalDirect: Bool,
                 logLevel: ClashConfig.LogLevel, allowLan: Bool,
+                ipv6: Bool,
                 httpPort: Int?, socksPort: Int?, apiPort: Int) {
       self.mainProxyGroupName = mainProxyName
       self.userProxyGroupName = userProxyGroupName
@@ -111,7 +111,10 @@ extension ProxyWorldConfiguration {
       self.httpPort = httpPort
       self.socksPort = socksPort
       self.apiPort = apiPort
+      self.ipv6 = ipv6
     }
+
+    public var ipv6: Bool
 
     // group
     public var mainProxyGroupName: String
@@ -171,185 +174,193 @@ extension ProxyWorldConfiguration {
     let fallbackGroupNameFormat: String
   }
 
-  public func generateClash(baseConfig: ClashConfig, mode: ClashConfig.Mode,
+  public func generateClashConfigs(baseConfig: ClashConfig,
                             ruleSubscriptionCache: [String : RuleProvider],
                             proxySubscriptionCache: [String : [ProxyConfig]],
                             options: GenerateOptions,
-                            fallback: (ProxyConfig) -> ClashProxy? = { _ in nil } ) -> ClashConfig {
+                            fallback: (ProxyConfig) -> ClashProxy? = { _ in nil } ) -> [(InstanceConfig, ClashConfig)] {
 
-    var proxyGroup: [ClashConfig.ProxyGroup] = []
-    var outputProxies = [ClashProxy]()
-    var outputRules: [Rule] = []
+    instances.map { instance in
+      var proxyGroup: [ClashConfig.ProxyGroup] = []
+      var outputProxies = [ClashProxy]()
+      var outputRules: [Rule] = []
 
-    // Check proxy name conflict
-    var allProxyNames = Set<String>()
-    var availableProxies: [String: [ClashProxy]] = .init()
-    var urlTestProxies: [String: [ClashProxy]] = .init()
-    var fallbackProxies: [String: [ClashProxy]] = .init()
+      // Check proxy name conflict
+      var allProxyNames = Set<String>()
+      var availableProxies: [String: [ClashProxy]] = .init()
+      var urlTestProxies: [String: [ClashProxy]] = .init()
+      var fallbackProxies: [String: [ClashProxy]] = .init()
 
-    for subscription in shared.subscriptions {
-      var groupProxies = [ClashProxy]()
-      let cachedNodes = proxySubscriptionCache[subscription.id.uuidString] ?? []
-      for proxy in cachedNodes {
-        var clashProxy = ClashProxy(proxy)
-        let originalName = clashProxy.name
-        if originalName.isEmpty {
-          print("No name")
+      for subscription in shared.subscriptions {
+        var groupProxies = [ClashProxy]()
+        let cachedNodes = proxySubscriptionCache[subscription.id.uuidString] ?? []
+        for proxy in cachedNodes {
+          var clashProxy = ClashProxy(proxy)
+          let originalName = clashProxy.name
+          if originalName.isEmpty {
+            print("No name")
+          } else {
+            clashProxy.name = allProxyNames.makeUniqueName(basename: clashProxy.name, keyPath: \.self)
+            allProxyNames.insert(clashProxy.name)
+            groupProxies.append(clashProxy)
+          }
+        }
+        if groupProxies.isEmpty {
+          print("No available nodes in subscription: \(subscription.name)")
         } else {
-          clashProxy.name = allProxyNames.makeUniqueName(basename: clashProxy.name, keyPath: \.self)
-          allProxyNames.insert(clashProxy.name)
-          groupProxies.append(clashProxy)
+          let groupName = availableProxies.keys.makeUniqueName(basename: subscription.name, keyPath: \.self)
+          if subscription.autogen.contains(.select) {
+            availableProxies[groupName] = groupProxies
+          }
+          if subscription.autogen.contains(.urlTest) {
+            // TODO: maybe just use replace
+            let genName = groupName.withCString { groupName in
+              try! LazyCopiedCString(format: options.urlTestGroupNameFormat, groupName).string
+            }
+            urlTestProxies[genName] = groupProxies
+          }
+          if subscription.autogen.contains(.fallback) {
+            let genName = groupName.withCString { groupName in
+              try! LazyCopiedCString(format: options.fallbackGroupNameFormat, groupName).string
+            }
+            fallbackProxies[genName] = groupProxies
+          }
         }
       }
-      if groupProxies.isEmpty {
-        print("No available nodes in subscription: \(subscription.name)")
+
+      // User's custom proxies
+      if !shared.proxies.isEmpty {
+        let userProxyGroupName = availableProxies.keys.makeUniqueName(basename: instance.normal.userProxyGroupName, keyPath: \.self)
+
+        availableProxies[userProxyGroupName] = shared.proxies.compactMap { userProxy in
+          if instance.enabledProxies.contains(userProxy.id) {
+            return userProxy.proxy
+          }
+          return nil
+        }
+      }
+      availableProxies.values.forEach { outputProxies.append(contentsOf: $0) }
+
+      var mainGroupProxies = [String]()
+
+      if instance.normal.addDirectToMainProxy {
+        mainGroupProxies.append(ClashConfig.directPolicy)
+      }
+
+      // generate group for each subscription
+
+      let subGroups = availableProxies.map { ClashConfig.ProxyGroup.select(name: $0.key, proxies: $0.value.map { $0.name }) }
+      proxyGroup.append(contentsOf: subGroups)
+
+      // url-test or fallback
+      let checkUrl: String
+      if let provided = instance.normal.serverCheckUrl, !provided.isEmpty {
+        checkUrl = provided
       } else {
-        let groupName = availableProxies.keys.makeUniqueName(basename: subscription.name, keyPath: \.self)
-        if subscription.autogen.contains(.select) {
-          availableProxies[groupName] = groupProxies
-        }
-        if subscription.autogen.contains(.urlTest) {
-          // TODO: maybe just use replace
-          let genName = groupName.withCString { groupName in
-            try! LazyCopiedCString(format: options.urlTestGroupNameFormat, groupName).string
+        checkUrl = defaultServerCheckUrl
+      }
+      let checkInterval: Int
+      if let provided = instance.normal.serverCheckInterval, provided > 30 {
+        checkInterval = provided
+      } else {
+        checkInterval = defaultServerCheckInterval
+      }
+      let urlTestGroups = urlTestProxies
+        .map { ClashConfig.ProxyGroup.urlTest(name: $0.key, proxies: $0.value.map(\.name), url: checkUrl, interval: checkInterval) }
+      let fallbackGroups = fallbackProxies
+        .map { ClashConfig.ProxyGroup.fallback(name: $0.key, proxies: $0.value.map(\.name), url: checkUrl, interval: checkInterval) }
+      proxyGroup.append(contentsOf: urlTestGroups)
+      proxyGroup.append(contentsOf: fallbackGroups)
+      mainGroupProxies.append(contentsOf: availableProxies.keys.sorted())
+      mainGroupProxies.append(contentsOf: urlTestProxies.keys.sorted())
+      mainGroupProxies.append(contentsOf: fallbackProxies.keys.sorted())
+
+      // main group
+      let mainGroup = ClashConfig.ProxyGroup.select(name: instance.normal.mainProxyGroupName, proxies: mainGroupProxies)
+
+      proxyGroup.insert(mainGroup, at: 0)
+
+      // Begin rules and rule selection group
+
+      let ruleSelectGroupProxies = CollectionOfOne(mainGroup.name) + mainGroupProxies
+
+      func generateAndAddRuleGroup<T: Collection>(
+        namePrefix: String = "", ruleCollections: T,
+        overridePoliciesDictionary: [String : AbstractRulePolicy]? = nil)
+      where T.Element == RuleCollection {
+
+        for ruleCollection in ruleCollections {
+          let basename = (namePrefix + ruleCollection.name).withCString { groupName in
+            try! LazyCopiedCString(format: options.ruleGroupNameFormat, groupName).string
           }
-          urlTestProxies[genName] = groupProxies
-        }
-        if subscription.autogen.contains(.fallback) {
-          let genName = groupName.withCString { groupName in
-            try! LazyCopiedCString(format: options.fallbackGroupNameFormat, groupName).string
+          let newSelectGroupName = proxyGroup.makeUniqueName(basename: basename, keyPath: \.name)
+          let selectGroup = ClashConfig.ProxyGroup.select(name: newSelectGroupName, proxies: ruleSelectGroupProxies)
+
+          var matcherCount = [AbstractRulePolicy : Int]()
+
+          let policy = overridePoliciesDictionary?[ruleCollection.name] ?? ruleCollection.recommendedPolicy
+
+          for ruleInfo in ruleCollection.rules where !ruleInfo.matchers.isEmpty {
+            matcherCount[policy, default: 0] += ruleInfo.matchers.count
+            let policyName: String
+            switch policy {
+            case .direct: policyName = ClashConfig.directPolicy
+            case .proxy: policyName = instance.normal.mainProxyGroupName
+            case .reject: policyName = ClashConfig.rejectPolicy
+            case .select:
+              // generate rule group
+              policyName = newSelectGroupName
+            case .selectProxy, .selectIpRegion:
+              fatalError("Unimplemented")
+            }
+
+            outputRules.append(.init(info: ruleInfo, policy: policyName))
           }
-          fallbackProxies[genName] = groupProxies
-        }
-      }
-    }
-
-    // User's custom proxies
-    if !shared.proxies.isEmpty {
-      let userProxyGroupName = availableProxies.keys.makeUniqueName(basename: normal.userProxyGroupName, keyPath: \.self)
-
-      availableProxies[userProxyGroupName] = shared.proxies.map { $0.proxy }
-    }
-    availableProxies.values.forEach { outputProxies.append(contentsOf: $0) }
-
-    var mainGroupProxies = [String]()
-
-    if normal.addDirectToMainProxy {
-      mainGroupProxies.append(ClashConfig.directPolicy)
-    }
-
-    // generate group for each subscription
-
-    let subGroups = availableProxies.map { ClashConfig.ProxyGroup.select(name: $0.key, proxies: $0.value.map { $0.name }) }
-    proxyGroup.append(contentsOf: subGroups)
-
-    // url-test or fallback
-    let checkUrl: String
-    if let provided = normal.serverCheckUrl, !provided.isEmpty {
-      checkUrl = provided
-    } else {
-      checkUrl = defaultServerCheckUrl
-    }
-    let checkInterval: Int
-    if let provided = normal.serverCheckInterval, provided > 30 {
-      checkInterval = provided
-    } else {
-      checkInterval = defaultServerCheckInterval
-    }
-    let urlTestGroups = urlTestProxies
-      .map { ClashConfig.ProxyGroup.urlTest(name: $0.key, proxies: $0.value.map(\.name), url: checkUrl, interval: checkInterval) }
-    let fallbackGroups = fallbackProxies
-      .map { ClashConfig.ProxyGroup.fallback(name: $0.key, proxies: $0.value.map(\.name), url: checkUrl, interval: checkInterval) }
-    proxyGroup.append(contentsOf: urlTestGroups)
-    proxyGroup.append(contentsOf: fallbackGroups)
-    mainGroupProxies.append(contentsOf: availableProxies.keys.sorted())
-    mainGroupProxies.append(contentsOf: urlTestProxies.keys.sorted())
-    mainGroupProxies.append(contentsOf: fallbackProxies.keys.sorted())
-
-    // main group
-    let mainGroup = ClashConfig.ProxyGroup.select(name: normal.mainProxyGroupName, proxies: mainGroupProxies)
-
-    proxyGroup.insert(mainGroup, at: 0)
-
-    // Begin rules and rule selection group
-
-    let ruleSelectGroupProxies = CollectionOfOne(mainGroup.name) + mainGroupProxies
-
-    func generateAndAddRuleGroup<T: Collection>(
-      namePrefix: String = "", ruleCollections: T,
-      overridePoliciesDictionary: [String : AbstractRulePolicy]? = nil)
-    where T.Element == RuleCollection {
-
-      for ruleCollection in ruleCollections {
-        let basename = (namePrefix + ruleCollection.name).withCString { groupName in
-          try! LazyCopiedCString(format: options.ruleGroupNameFormat, groupName).string
-        }
-        let newSelectGroupName = proxyGroup.makeUniqueName(basename: basename, keyPath: \.name)
-        let selectGroup = ClashConfig.ProxyGroup.select(name: newSelectGroupName, proxies: ruleSelectGroupProxies)
-
-        var matcherCount = [AbstractRulePolicy : Int]()
-
-        let policy = overridePoliciesDictionary?[ruleCollection.name] ?? ruleCollection.recommendedPolicy
-
-        for ruleInfo in ruleCollection.rules where !ruleInfo.matchers.isEmpty {
-          matcherCount[policy, default: 0] += ruleInfo.matchers.count
-          let policyName: String
-          switch policy {
-          case .direct: policyName = ClashConfig.directPolicy
-          case .proxy: policyName = normal.mainProxyGroupName
-          case .reject: policyName = ClashConfig.rejectPolicy
-          case .select:
-            // generate rule group
-            policyName = newSelectGroupName
-          case .selectProxy, .selectIpRegion:
-            fatalError("Unimplemented")
+          if matcherCount[.select, default: 0] > 0 {
+            // or use direct/mainProxy
+            proxyGroup.append(selectGroup)
           }
-
-          outputRules.append(.init(info: ruleInfo, policy: policyName))
         }
-        if matcherCount[.select, default: 0] > 0 {
-          // or use direct/mainProxy
-          proxyGroup.append(selectGroup)
+
+      }
+
+      for ruleCollection in shared.rules {
+        generateAndAddRuleGroup(ruleCollections: CollectionOfOne(ruleCollection))
+      }
+
+      for ruleSubscription in shared.ruleSubscriptions {
+        guard let cachedRuleProvider = ruleSubscriptionCache[ruleSubscription.id.uuidString] else {
+          continue
         }
+        var customName: String = ruleSubscription.name.isEmpty ? cachedRuleProvider.name : ruleSubscription.name
+        if !customName.isEmpty {
+          customName.append(" - ")
+        }
+        generateAndAddRuleGroup(namePrefix: customName, ruleCollections: cachedRuleProvider.collections, overridePoliciesDictionary: ruleSubscription.overridePoliciesDictionary)
       }
 
-    }
-
-    for ruleCollection in shared.rules {
-      generateAndAddRuleGroup(ruleCollections: CollectionOfOne(ruleCollection))
-    }
-
-    for ruleSubscription in shared.ruleSubscriptions {
-      guard let cachedRuleProvider = ruleSubscriptionCache[ruleSubscription.id.uuidString] else {
-        continue
+      if instance.normal.finalDirect {
+        outputRules.append(Rule(.final, "", ClashConfig.directPolicy))
+      } else {
+        outputRules.append(Rule(.final, "", instance.normal.mainProxyGroupName))
       }
-      var customName: String = ruleSubscription.name.isEmpty ? cachedRuleProvider.name : ruleSubscription.name
-      if !customName.isEmpty {
-        customName.append(" - ")
+
+      var config = baseConfig
+      config.proxyGroups = proxyGroup
+      config.logLevel = instance.normal.logLevel
+      config.rules = outputRules.flatMap { $0.generateConfigLines(for: .clash) }
+      config.allowLan = instance.normal.allowLan
+      config.externalController = "\(instance.normal.apiBindAddress ?? "127.0.0.1"):\(instance.normal.apiPort)"
+      config.ipv6 = instance.normal.ipv6
+      config.socksPort = instance.normal.socksPort
+      config.httpPort = instance.normal.httpPort
+      config.mixedPort = instance.normal.mixedPort
+      if instance.dns.enable == true {
+        config.dns = instance.dns
       }
-      generateAndAddRuleGroup(namePrefix: customName, ruleCollections: cachedRuleProvider.collections, overridePoliciesDictionary: ruleSubscription.overridePoliciesDictionary)
+      config.proxies = outputProxies
+
+      return (instance, config)
     }
-
-    if normal.finalDirect {
-      outputRules.append(Rule(.final, "", ClashConfig.directPolicy))
-    } else {
-      outputRules.append(Rule(.final, "", normal.mainProxyGroupName))
-    }
-
-    var config = baseConfig
-    config.proxyGroups = proxyGroup
-    config.logLevel = normal.logLevel
-    config.rules = outputRules.flatMap { $0.generateConfigLines(for: .clash) }
-    config.allowLan = normal.allowLan
-    config.externalController = "\(normal.apiBindAddress ?? "127.0.0.1"):\(normal.apiPort)"
-    config.mode = mode
-    config.ipv6 = dns.ipv6
-    config.socksPort = normal.socksPort
-    config.httpPort = normal.httpPort
-    config.mixedPort = normal.mixedPort
-    config.dns = dns
-    config.proxies = outputProxies
-
-    return config
   }
 }

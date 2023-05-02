@@ -10,12 +10,20 @@ import ArgumentParser
 import QuantumultSupport
 import Precondition
 import SystemPackage
+import SystemUp
 
 enum ConfigFormat: String, ExpressibleByArgument, CaseIterable {
   case clash
   case qx
   case qxServer
   case qxFilter
+
+  var fileExtension: String {
+    switch self {
+    case .clash: return "yaml"
+    default: return "txt"
+    }
+  }
 }
 
 struct GroupNameGenerateOptions: ParsableArguments {
@@ -49,37 +57,58 @@ struct Generate: AsyncParsableCommand {
   @Argument
   var configPath: FilePath
 
-  @Argument
-  var outputPath: FilePath
+  @Argument(help: "Output root directory")
+  var outputDirectory: FilePath
 
   func run() async throws {
-    let outputFD = try FileDescriptor.open(outputPath, .writeOnly, options: overwrite ? [.create, .truncate] : [.create, .exclusiveCreate], permissions: .fileDefault)
-    defer { try? outputFD.close() }
 
     let manager = try Manager(configPath: configPath)
 
     try await manager.refresh()
 
-    let clashConfig = try await manager.generateClash(
-      baseConfig: ClashConfig(mode: .rule),
-      mode: .rule,
+    var baseConfig = ClashConfig(mode: .rule)
+    baseConfig.profile?.storeSelected = true
+
+    let results = try await manager.generateClashConfigs(
+      baseConfig: baseConfig,
       options: .init(ruleGroupNameFormat: options.ruleGroupName, urlTestGroupNameFormat: options.urlTestGroupName, fallbackGroupNameFormat: options.fallbackGroupName),
       fallback: { _ in nil }
     )
 
-    let outputString: String
-    switch format {
-    case .clash:
-      outputString = try YAMLEncoder().encode(clashConfig)
-    case .qx:
-      outputString = clashConfig.quantumultXConfig
-    case .qxServer:
-      outputString = clashConfig.serverLocalQXLines
-    case .qxFilter:
-      outputString = clashConfig.filterLocalQXLines
+    let configEncoder = YAMLEncoder()
+    configEncoder.options.allowUnicode = true
+    configEncoder.options.sortKeys = true
+
+    for (instanceConfig, clashConfig) in results {
+
+      let ouptutFilename = "\(instanceConfig.name.isEmpty ? instanceConfig.id.uuidString : instanceConfig.name).\(format.fileExtension)"
+      let outputPath = outputDirectory.appending(ouptutFilename)
+
+      print("Writing to file: \(outputPath)")
+
+      do {
+        let outputFD = try FileDescriptor.open(outputPath, .writeOnly, options: overwrite ? [.create, .truncate] : [.create, .exclusiveCreate], permissions: .fileDefault)
+        defer { try? outputFD.close() }
+
+        let outputString: String
+        switch format {
+        case .clash:
+          outputString = try configEncoder.encode(clashConfig)
+        case .qx:
+          outputString = clashConfig.quantumultXConfig
+        case .qxServer:
+          outputString = clashConfig.serverLocalQXLines
+        case .qxFilter:
+          outputString = clashConfig.filterLocalQXLines
+        }
+
+        try outputFD.writeAll(outputString.utf8)
+      } catch {
+        print("Write failed: \(error)")
+        _ = FileSyscalls.unlink(.absolute(outputPath))
+      }
     }
 
-    print("Writing...")
-    try outputFD.writeAll(outputString.utf8)
+
   }
 }

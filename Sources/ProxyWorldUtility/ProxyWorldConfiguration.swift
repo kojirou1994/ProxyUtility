@@ -255,6 +255,7 @@ extension ProxyWorldConfiguration {
                 }
                 var alterProxy = clashProxy
                 alterProxy.name = genUniqueProxyName(basename)
+                alterProxy.server = alterHost.host
 
                 generatedProxies.append(alterProxy)
               }

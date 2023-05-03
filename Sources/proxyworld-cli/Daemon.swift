@@ -39,6 +39,9 @@ actor Manager {
     config = try _readConfig(configPath: configPath)
   }
 
+  deinit {
+    session.invalidateAndCancel()
+  }
 
   /// Reload config
   /// - Returns: true if config changed

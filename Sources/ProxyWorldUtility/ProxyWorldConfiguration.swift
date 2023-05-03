@@ -190,6 +190,12 @@ extension ProxyWorldConfiguration {
 
       // Check proxy name conflict
       var allProxyNames = Set<String>()
+      func genUniqueProxyName(_ basename: String) -> String {
+        let name = allProxyNames.makeUniqueName(basename: basename, keyPath: \.self)
+        allProxyNames.insert(name)
+        return name
+      }
+
       var selectGroupsProxies: [String: [ClashProxy]] = .init()
       var urlTestGroupsProxies: [String: [ClashProxy]] = .init()
       var fallbackGroupsProxies: [String: [ClashProxy]] = .init()
@@ -204,8 +210,7 @@ extension ProxyWorldConfiguration {
             print("No name")
           } else {
             // all normal proxies's names are made unique here
-            clashProxy.name = allProxyNames.makeUniqueName(basename: clashProxy.name, keyPath: \.self)
-            allProxyNames.insert(clashProxy.name)
+            clashProxy.name = genUniqueProxyName(clashProxy.name)
             groupProxies.append(clashProxy)
           }
         }
@@ -235,14 +240,28 @@ extension ProxyWorldConfiguration {
       // User's custom proxies
       let customProxies: [ClashProxy]
       if !shared.proxies.isEmpty {
-        customProxies = shared.proxies.compactMap { userProxy in
+        customProxies = shared.proxies.flatMap { userProxy in
           var clashProxy = userProxy.proxy
-          clashProxy.name = allProxyNames.makeUniqueName(basename: clashProxy.name, keyPath: \.self)
-          allProxyNames.insert(clashProxy.name)
+          clashProxy.name = genUniqueProxyName(clashProxy.name)
           if instance.enabledProxies.contains(userProxy.id) {
-            return clashProxy
+            var generatedProxies = [clashProxy]
+            if let alterHosts = userProxy.alterHosts, !alterHosts.isEmpty {
+              alterHosts.forEach { alterHost in
+                let basename: String
+                if let alterName = (try? alterHost.name?.notEmpty()) {
+                  basename = "\(clashProxy.name) - \(alterName)"
+                } else {
+                  basename = clashProxy.name
+                }
+                var alterProxy = clashProxy
+                alterProxy.name = genUniqueProxyName(basename)
+
+                generatedProxies.append(alterProxy)
+              }
+            }
+            return generatedProxies
           }
-          return nil
+          return []
         }
         if let basename = instance.normal.userProxyGroupName {
           let userProxyGroupName = selectGroupsProxies.keys.makeUniqueName(basename: basename, keyPath: \.self)

@@ -62,14 +62,41 @@ public enum ClashProxy: Codable, Equatable {
   }
 
   public var server: String {
-    switch self {
-    case .shadowsocks(let s): return s.server
-    case .snell(let s): return s.server
-    case .trojan(let s): return s.server
-    case .socks5(let s): return s.server
-    case .http(let h): return h.server
-    case .vmess(let v): return v.server
-    case .ssr(let s): return s.server
+    get {
+      switch self {
+      case .shadowsocks(let s): return s.server
+      case .snell(let s): return s.server
+      case .trojan(let s): return s.server
+      case .socks5(let s): return s.server
+      case .http(let h): return h.server
+      case .vmess(let v): return v.server
+      case .ssr(let s): return s.server
+      }
+    }
+    set {
+      switch self {
+      case .shadowsocks(var s):
+        s.server = newValue
+        self = .shadowsocks(s)
+      case .socks5(var s):
+        s.server = newValue
+        self = .socks5(s)
+      case .http(var h):
+        h.server = newValue
+        self = .http(h)
+      case .vmess(var v):
+        v.server = newValue
+        self = .vmess(v)
+      case .snell(var s):
+        s.server = newValue
+        self = .snell(s)
+      case .trojan(var s):
+        s.server = newValue
+        self = .trojan(s)
+      case .ssr(var s):
+        s.server = newValue
+        self = .ssr(s)
+      }
     }
   }
 

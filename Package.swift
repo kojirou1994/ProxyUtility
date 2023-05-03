@@ -96,7 +96,8 @@ let package = Package(
       dependencies: [
         "ProxyRule",
         "ClashSupport",
-        "ProxySubscription"
+        "ProxySubscription",
+        .product(name: "SystemUp", package: "SystemUp"),
       ]
     ),
     .executableTarget(

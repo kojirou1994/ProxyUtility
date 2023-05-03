@@ -7,6 +7,29 @@ import Precondition
 import CUtility
 import SystemUp
 
+public enum AnyProxyID: Codable {
+  case uuid(UUID)
+  case name(String)
+
+  public init(from decoder: Decoder) throws {
+    let string = try String(from: decoder)
+    if let uuid = UUID(uuidString: string) {
+      self = .uuid(uuid)
+    } else {
+      self = .name(string)
+    }
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    switch self {
+    case .uuid(let uuid):
+      try uuid.encode(to: encoder)
+    case .name(let string):
+      try string.encode(to: encoder)
+    }
+  }
+}
+
 public struct ProxyWorldProxy: Identifiable, Equatable, Codable {
   public let id: UUID
   public let proxy: ClashProxy

@@ -10,11 +10,14 @@ import SystemUp
 public struct ProxyWorldProxy: Identifiable, Equatable, Codable {
   public let id: UUID
   public let proxy: ClashProxy
-//  public var alterHosts: [AlterIP]
+  public var alterHosts: [AlterIP]?
+  public var genAlterGroup: Set<ClashConfig.ProxyGroup.ProxyGroupType>?
 
-  public init(id: UUID = .init(), proxy: ClashProxy) {
+  public init(id: UUID = .init(), proxy: ClashProxy, alterHosts: [AlterIP]?, genAlterGroup: Set<ClashConfig.ProxyGroup.ProxyGroupType>?) {
     self.id = id
     self.proxy = proxy
+    self.alterHosts = alterHosts
+    self.genAlterGroup = genAlterGroup
   }
 
   public struct AlterIP: Equatable, Codable {

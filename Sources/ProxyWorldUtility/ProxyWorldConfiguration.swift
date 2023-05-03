@@ -94,11 +94,16 @@ public struct ProxyWorldConfiguration: Codable, Equatable {
 extension ProxyWorldConfiguration {
 
   public struct SharedData: Codable, Equatable {
-    public var rules: [RuleCollection]
+    public var rules: [RuleBlock]
     public var ruleSubscriptions: [ProxyWorldRuleSubscription]
 
     public var proxies: [ProxyWorldProxy]
     public var subscriptions: [ProxyNodeSubscription]
+  }
+
+  public struct RuleBlock: Codable, Equatable {
+    public let id: UUID
+    public let data: RuleCollection
   }
 
   public struct InstanceConfig: Codable, Equatable {
@@ -107,14 +112,11 @@ extension ProxyWorldConfiguration {
     public var dns: ClashConfig.ClashDNS
     public var normal: ProxyWorldConfiguration.NormalConfiguration
 
-    public var rules: [InstanceRule]
-    public enum InstanceRule: Codable, Equatable {
-      case subscription(UUID, overridePolicies: [RuleCollectionOverridePolicy])
-      case collection(UUID)
-    }
+    public var enabledRules: Set<UUID>
+    public var ruleSubscriptions: Set<UUID>
 
     public var enabledProxies: Set<UUID>
-    public var enabledSubscriptions: Set<UUID>
+    public var proxySubscriptions: Set<UUID>
   }
 
   public struct ExternalProxyConfig: Codable, Equatable {
@@ -247,7 +249,7 @@ extension ProxyWorldConfiguration {
         }
       }
 
-      for subscription in shared.subscriptions where instance.enabledSubscriptions.contains(subscription.id) {
+      for subscription in shared.subscriptions where instance.proxySubscriptions.contains(subscription.id) {
         var groupProxies = [ClashProxy]()
         let cachedNodes = proxySubscriptionCache[subscription.id.uuidString] ?? []
         for proxy in cachedNodes {
@@ -393,11 +395,11 @@ extension ProxyWorldConfiguration {
 
       }
 
-      for ruleCollection in shared.rules {
-        generateAndAddRuleGroup(ruleCollections: CollectionOfOne(ruleCollection))
+      for ruleCollection in shared.rules where instance.enabledRules.contains(ruleCollection.id) {
+        generateAndAddRuleGroup(ruleCollections: CollectionOfOne(ruleCollection.data))
       }
 
-      for ruleSubscription in shared.ruleSubscriptions {
+      for ruleSubscription in shared.ruleSubscriptions where instance.ruleSubscriptions.contains(ruleSubscription.id) {
         guard let cachedRuleProvider = ruleSubscriptionCache[ruleSubscription.id.uuidString] else {
           continue
         }

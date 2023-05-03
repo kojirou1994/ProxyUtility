@@ -236,8 +236,11 @@ extension ProxyWorldConfiguration {
       let customProxies: [ClashProxy]
       if !shared.proxies.isEmpty {
         customProxies = shared.proxies.compactMap { userProxy in
+          var clashProxy = userProxy.proxy
+          clashProxy.name = allProxyNames.makeUniqueName(basename: clashProxy.name, keyPath: \.self)
+          allProxyNames.insert(clashProxy.name)
           if instance.enabledProxies.contains(userProxy.id) {
-            return userProxy.proxy
+            return clashProxy
           }
           return nil
         }

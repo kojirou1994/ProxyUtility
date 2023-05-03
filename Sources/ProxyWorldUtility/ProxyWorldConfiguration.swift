@@ -278,7 +278,11 @@ extension ProxyWorldConfiguration {
           var clashProxy = userProxy.proxy
           clashProxy.name = genUniqueProxyName(clashProxy.name)
           if instance.enabledProxies.contains(userProxy.id) {
-            var generatedProxies = [clashProxy]
+            var generatedProxies: [ClashProxy] = []
+            // is server is empty string, only use alterHosts
+            if !clashProxy.server.isEmpty {
+              generatedProxies.append(clashProxy)
+            }
             if let alterHosts = userProxy.alterHosts, !alterHosts.isEmpty {
               alterHosts.forEach { alterHost in
                 let basename: String

@@ -247,7 +247,7 @@ extension ProxyWorldConfiguration {
         }
       }
 
-      for subscription in shared.subscriptions {
+      for subscription in shared.subscriptions where instance.enabledSubscriptions.contains(subscription.id) {
         var groupProxies = [ClashProxy]()
         let cachedNodes = proxySubscriptionCache[subscription.id.uuidString] ?? []
         for proxy in cachedNodes {

@@ -29,18 +29,32 @@ actor Manager {
   private let configPath: FilePath
   private var config: ProxyWorldConfiguration
 
+  nonisolated
+  public let networkOptions: NetworkOptions
+
+  public struct NetworkOptions {
+    public let retryLimit: UInt
+    // try direct connection if proxy env detected
+    public let tryDirectConnect: Bool
+  }
   // MARK: Caches
-  private let session = URLSession(configuration: .ephemeral)
+  private let sessions: [URLSession]
+
   private var proxyCache = [String: [ProxyConfig]]()
   private var ruleCache = [String: RuleProvider]()
 
-  public init(configPath: FilePath) throws {
+  public init(configPath: FilePath, networkOptions: NetworkOptions) throws {
     self.configPath = configPath
+    self.networkOptions = networkOptions
+    // TODO: detect proxy env
+    let session = URLSession(configuration: .ephemeral)
+    let directSession: URLSession? = nil
+    sessions = [session, directSession].compactMap { $0 }
     config = try _readConfig(configPath: configPath)
   }
 
   deinit {
-    session.invalidateAndCancel()
+    sessions.forEach {$0.invalidateAndCancel() }
   }
 
   /// Reload config
@@ -56,7 +70,17 @@ actor Manager {
   }
 
   private func load(url: URL) async throws -> Data {
-    try await session.data(for: URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 20)).0
+    var error: Error!
+    for _ in 0...networkOptions.retryLimit {
+      for session in sessions {
+        do {
+          return try await session.data(for: URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 20)).0
+        } catch let e {
+          error = e
+        }
+      }
+    }
+    throw error
   }
 
   public func refresh() async throws {
@@ -120,6 +144,9 @@ struct Daemon: AsyncParsableCommand {
   @Option(help: "Refresh interval for subscription/rule")
   var refreshInterval: Int = 600
 
+  @OptionGroup(title: "NETWORK")
+  var networkOptions: NetworkOptions
+
   @Argument
   var configPath: FilePath
 
@@ -143,7 +170,7 @@ struct Daemon: AsyncParsableCommand {
       throw ExitCode(1)
     }
 
-    let manager = try Manager(configPath: configPath)
+    let manager = try Manager(configPath: configPath, networkOptions: networkOptions.toInternal)
 
     if let reloadInterval {
       Task {

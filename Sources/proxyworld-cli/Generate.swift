@@ -38,6 +38,18 @@ struct GroupNameGenerateOptions: ParsableArguments {
   var fallbackGroupName: String = "[FALLBACK] %s"
 }
 
+struct NetworkOptions: ParsableArguments {
+  @Option
+  var retryLimit: UInt = 2
+
+  @Flag
+  var tryDirect: Bool = true
+
+  var toInternal: Manager.NetworkOptions {
+    .init(retryLimit: retryLimit, tryDirectConnect: tryDirect)
+  }
+}
+
 struct Generate: AsyncParsableCommand {
 
   @Option(name: .shortAndLong, help: "Available: \(ConfigFormat.allCases.map(\.rawValue).joined(separator: ", "))")
@@ -55,6 +67,9 @@ struct Generate: AsyncParsableCommand {
   @OptionGroup(title: "NAME GENERATION")
   var options: GroupNameGenerateOptions
 
+  @OptionGroup(title: "NETWORK")
+  var networkOptions: NetworkOptions
+
   @Argument
   var configPath: FilePath
 
@@ -63,7 +78,7 @@ struct Generate: AsyncParsableCommand {
 
   func run() async throws {
 
-    let manager = try Manager(configPath: configPath)
+    let manager = try Manager(configPath: configPath, networkOptions: networkOptions.toInternal)
 
     try await manager.refresh()
 

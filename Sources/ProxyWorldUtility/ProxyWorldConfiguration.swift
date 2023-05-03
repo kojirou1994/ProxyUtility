@@ -34,13 +34,13 @@ public struct ProxyWorldProxy: Identifiable, Equatable, Codable {
   public let id: UUID
   public let proxy: ClashProxy
   public var alterHosts: [AlterIP]?
-  public var genAlterGroup: Set<ClashConfig.ProxyGroup.ProxyGroupType>?
+  public var autogen: Set<ClashConfig.ProxyGroup.ProxyGroupType>?
 
-  public init(id: UUID = .init(), proxy: ClashProxy, alterHosts: [AlterIP]?, genAlterGroup: Set<ClashConfig.ProxyGroup.ProxyGroupType>?) {
+  public init(id: UUID = .init(), proxy: ClashProxy, alterHosts: [AlterIP]?, autogen: Set<ClashConfig.ProxyGroup.ProxyGroupType>?) {
     self.id = id
     self.proxy = proxy
     self.alterHosts = alterHosts
-    self.genAlterGroup = genAlterGroup
+    self.autogen = autogen
   }
 
   public struct AlterIP: Equatable, Codable {
@@ -212,7 +212,8 @@ extension ProxyWorldConfiguration {
       var outputRules: [Rule] = []
 
       // Check proxy name conflict
-      var allProxyNames = Set<String>()
+      /// all proxies and groups names
+      var allProxyNames: Set<String> = [instance.normal.mainProxyGroupName]
       func genUniqueProxyName(_ basename: String) -> String {
         let name = allProxyNames.makeUniqueName(basename: basename, keyPath: \.self)
         allProxyNames.insert(name)
@@ -222,6 +223,29 @@ extension ProxyWorldConfiguration {
       var selectGroupsProxies: [String: [ClashProxy]] = .init()
       var urlTestGroupsProxies: [String: [ClashProxy]] = .init()
       var fallbackGroupsProxies: [String: [ClashProxy]] = .init()
+
+      func genGroups(name: String, groupProxies: [ClashProxy], autogen: Set<ClashConfig.ProxyGroup.ProxyGroupType>?) {
+        guard let autogen, !autogen.isEmpty else {
+          return
+        }
+        let groupName = genUniqueProxyName(name)
+        if autogen.contains(.select) {
+          selectGroupsProxies[groupName] = groupProxies
+        }
+        if autogen.contains(.urlTest) {
+          // TODO: maybe just use replace
+          let genName = groupName.withCString { groupName in
+            genUniqueProxyName(try! LazyCopiedCString(format: options.urlTestGroupNameFormat, groupName).string)
+          }
+          urlTestGroupsProxies[genName] = groupProxies
+        }
+        if autogen.contains(.fallback) {
+          let genName = groupName.withCString { groupName in
+            genUniqueProxyName(try! LazyCopiedCString(format: options.fallbackGroupNameFormat, groupName).string)
+          }
+          fallbackGroupsProxies[genName] = groupProxies
+        }
+      }
 
       for subscription in shared.subscriptions {
         var groupProxies = [ClashProxy]()
@@ -240,23 +264,8 @@ extension ProxyWorldConfiguration {
         if groupProxies.isEmpty {
           print("No available nodes in subscription: \(subscription.name)")
         } else {
-          let groupName = selectGroupsProxies.keys.makeUniqueName(basename: subscription.name, keyPath: \.self)
-          if subscription.autogen.contains(.select) {
-            selectGroupsProxies[groupName] = groupProxies
-          }
-          if subscription.autogen.contains(.urlTest) {
-            // TODO: maybe just use replace
-            let genName = groupName.withCString { groupName in
-              try! LazyCopiedCString(format: options.urlTestGroupNameFormat, groupName).string
-            }
-            urlTestGroupsProxies[genName] = groupProxies
-          }
-          if subscription.autogen.contains(.fallback) {
-            let genName = groupName.withCString { groupName in
-              try! LazyCopiedCString(format: options.fallbackGroupNameFormat, groupName).string
-            }
-            fallbackGroupsProxies[genName] = groupProxies
-          }
+          genGroups(name: subscription.name, groupProxies: groupProxies, autogen: subscription.autogen)
+          outputProxies.append(contentsOf: groupProxies)
         }
       }
 
@@ -283,6 +292,7 @@ extension ProxyWorldConfiguration {
                 generatedProxies.append(alterProxy)
               }
             }
+            genGroups(name: "GROUP - \(userProxy.proxy.name)", groupProxies: generatedProxies, autogen: userProxy.autogen)
             return generatedProxies
           }
           return []
@@ -290,15 +300,11 @@ extension ProxyWorldConfiguration {
         if let basename = instance.normal.userProxyGroupName {
           let userProxyGroupName = selectGroupsProxies.keys.makeUniqueName(basename: basename, keyPath: \.self)
           selectGroupsProxies[userProxyGroupName] = customProxies
-        } else {
-          // no group so add nodes to outputProxies
-          outputProxies.append(contentsOf: customProxies)
         }
+        outputProxies.append(contentsOf: customProxies)
       } else {
         customProxies = []
       }
-
-      selectGroupsProxies.values.forEach { outputProxies.append(contentsOf: $0) }
 
       var mainGroupProxies = [String]()
 

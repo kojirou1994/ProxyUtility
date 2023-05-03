@@ -100,7 +100,7 @@ extension ProxyWorldConfiguration {
   }
 
   public struct NormalConfiguration: Codable, Equatable {
-    public init(mainProxyName: String, userProxyGroupName: String,
+    public init(mainProxyName: String, userProxyGroupName: String?,
                 addDirectToMainProxy: Bool, finalDirect: Bool,
                 logLevel: ClashConfig.LogLevel, allowLan: Bool,
                 ipv6: Bool,
@@ -121,7 +121,7 @@ extension ProxyWorldConfiguration {
 
     // group
     public var mainProxyGroupName: String
-    public var userProxyGroupName: String
+    public var userProxyGroupName: String? // add proxies to main group is nil
     public var addDirectToMainProxy: Bool
     //        var selectUseMainProxy: Bool
     //        var useSubGroupForSubcriptions = true
@@ -203,6 +203,7 @@ extension ProxyWorldConfiguration {
           if originalName.isEmpty {
             print("No name")
           } else {
+            // all normal proxies's names are made unique here
             clashProxy.name = allProxyNames.makeUniqueName(basename: clashProxy.name, keyPath: \.self)
             allProxyNames.insert(clashProxy.name)
             groupProxies.append(clashProxy)
@@ -232,16 +233,25 @@ extension ProxyWorldConfiguration {
       }
 
       // User's custom proxies
+      let customProxies: [ClashProxy]
       if !shared.proxies.isEmpty {
-        let userProxyGroupName = availableProxies.keys.makeUniqueName(basename: instance.normal.userProxyGroupName, keyPath: \.self)
-
-        availableProxies[userProxyGroupName] = shared.proxies.compactMap { userProxy in
+        customProxies = shared.proxies.compactMap { userProxy in
           if instance.enabledProxies.contains(userProxy.id) {
             return userProxy.proxy
           }
           return nil
         }
+        if let basename = instance.normal.userProxyGroupName {
+          let userProxyGroupName = availableProxies.keys.makeUniqueName(basename: basename, keyPath: \.self)
+          availableProxies[userProxyGroupName] = customProxies
+        } else {
+          // no group so add nodes to outputProxies
+          outputProxies.append(contentsOf: customProxies)
+        }
+      } else {
+        customProxies = []
       }
+
       availableProxies.values.forEach { outputProxies.append(contentsOf: $0) }
 
       var mainGroupProxies = [String]()
@@ -277,6 +287,10 @@ extension ProxyWorldConfiguration {
       mainGroupProxies.append(contentsOf: availableProxies.keys.sorted())
       mainGroupProxies.append(contentsOf: urlTestProxies.keys.sorted())
       mainGroupProxies.append(contentsOf: fallbackProxies.keys.sorted())
+      if instance.normal.userProxyGroupName == nil {
+        // add custom nodes to main group directly
+        mainGroupProxies.append(contentsOf: customProxies.map(\.name))
+      }
 
       // main group
       let mainGroup = ClashConfig.ProxyGroup.select(name: instance.normal.mainProxyGroupName, proxies: mainGroupProxies)

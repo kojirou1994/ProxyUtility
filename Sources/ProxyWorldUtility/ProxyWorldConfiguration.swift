@@ -190,9 +190,9 @@ extension ProxyWorldConfiguration {
 
       // Check proxy name conflict
       var allProxyNames = Set<String>()
-      var availableProxies: [String: [ClashProxy]] = .init()
-      var urlTestProxies: [String: [ClashProxy]] = .init()
-      var fallbackProxies: [String: [ClashProxy]] = .init()
+      var selectGroupsProxies: [String: [ClashProxy]] = .init()
+      var urlTestGroupsProxies: [String: [ClashProxy]] = .init()
+      var fallbackGroupsProxies: [String: [ClashProxy]] = .init()
 
       for subscription in shared.subscriptions {
         var groupProxies = [ClashProxy]()
@@ -212,22 +212,22 @@ extension ProxyWorldConfiguration {
         if groupProxies.isEmpty {
           print("No available nodes in subscription: \(subscription.name)")
         } else {
-          let groupName = availableProxies.keys.makeUniqueName(basename: subscription.name, keyPath: \.self)
+          let groupName = selectGroupsProxies.keys.makeUniqueName(basename: subscription.name, keyPath: \.self)
           if subscription.autogen.contains(.select) {
-            availableProxies[groupName] = groupProxies
+            selectGroupsProxies[groupName] = groupProxies
           }
           if subscription.autogen.contains(.urlTest) {
             // TODO: maybe just use replace
             let genName = groupName.withCString { groupName in
               try! LazyCopiedCString(format: options.urlTestGroupNameFormat, groupName).string
             }
-            urlTestProxies[genName] = groupProxies
+            urlTestGroupsProxies[genName] = groupProxies
           }
           if subscription.autogen.contains(.fallback) {
             let genName = groupName.withCString { groupName in
               try! LazyCopiedCString(format: options.fallbackGroupNameFormat, groupName).string
             }
-            fallbackProxies[genName] = groupProxies
+            fallbackGroupsProxies[genName] = groupProxies
           }
         }
       }
@@ -242,8 +242,8 @@ extension ProxyWorldConfiguration {
           return nil
         }
         if let basename = instance.normal.userProxyGroupName {
-          let userProxyGroupName = availableProxies.keys.makeUniqueName(basename: basename, keyPath: \.self)
-          availableProxies[userProxyGroupName] = customProxies
+          let userProxyGroupName = selectGroupsProxies.keys.makeUniqueName(basename: basename, keyPath: \.self)
+          selectGroupsProxies[userProxyGroupName] = customProxies
         } else {
           // no group so add nodes to outputProxies
           outputProxies.append(contentsOf: customProxies)
@@ -252,7 +252,7 @@ extension ProxyWorldConfiguration {
         customProxies = []
       }
 
-      availableProxies.values.forEach { outputProxies.append(contentsOf: $0) }
+      selectGroupsProxies.values.forEach { outputProxies.append(contentsOf: $0) }
 
       var mainGroupProxies = [String]()
 
@@ -262,7 +262,7 @@ extension ProxyWorldConfiguration {
 
       // generate group for each subscription
 
-      let subGroups = availableProxies.map { ClashConfig.ProxyGroup.select(name: $0.key, proxies: $0.value.map { $0.name }) }
+      let subGroups = selectGroupsProxies.map { ClashConfig.ProxyGroup.select(name: $0.key, proxies: $0.value.map { $0.name }) }
       proxyGroup.append(contentsOf: subGroups)
 
       // url-test or fallback
@@ -278,15 +278,15 @@ extension ProxyWorldConfiguration {
       } else {
         checkInterval = defaultServerCheckInterval
       }
-      let urlTestGroups = urlTestProxies
+      let urlTestGroups = urlTestGroupsProxies
         .map { ClashConfig.ProxyGroup.urlTest(name: $0.key, proxies: $0.value.map(\.name), url: checkUrl, interval: checkInterval) }
-      let fallbackGroups = fallbackProxies
+      let fallbackGroups = fallbackGroupsProxies
         .map { ClashConfig.ProxyGroup.fallback(name: $0.key, proxies: $0.value.map(\.name), url: checkUrl, interval: checkInterval) }
       proxyGroup.append(contentsOf: urlTestGroups)
       proxyGroup.append(contentsOf: fallbackGroups)
-      mainGroupProxies.append(contentsOf: availableProxies.keys.sorted())
-      mainGroupProxies.append(contentsOf: urlTestProxies.keys.sorted())
-      mainGroupProxies.append(contentsOf: fallbackProxies.keys.sorted())
+      mainGroupProxies.append(contentsOf: selectGroupsProxies.keys.sorted())
+      mainGroupProxies.append(contentsOf: urlTestGroupsProxies.keys.sorted())
+      mainGroupProxies.append(contentsOf: fallbackGroupsProxies.keys.sorted())
       if instance.normal.userProxyGroupName == nil {
         // add custom nodes to main group directly
         mainGroupProxies.append(contentsOf: customProxies.map(\.name))

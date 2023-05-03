@@ -11,6 +11,7 @@ import QuantumultSupport
 import Precondition
 import SystemPackage
 import SystemUp
+import TSCExecutableLauncher
 
 enum ConfigFormat: String, ExpressibleByArgument, CaseIterable {
   case clash
@@ -79,6 +80,14 @@ struct Generate: AsyncParsableCommand {
     configEncoder.options.allowUnicode = true
     configEncoder.options.sortKeys = true
 
+    let test: Bool
+    do {
+      try Clash.validate()
+      test = true
+    } catch {
+      test = false
+    }
+
     for (instanceConfig, clashConfig) in results {
 
       let ouptutFilename = "\(instanceConfig.name.isEmpty ? instanceConfig.id.uuidString : instanceConfig.name).\(format.fileExtension)"
@@ -87,8 +96,6 @@ struct Generate: AsyncParsableCommand {
       print("Writing to file: \(outputPath)")
 
       do {
-        let outputFD = try FileDescriptor.open(outputPath, .writeOnly, options: overwrite ? [.create, .truncate] : [.create, .exclusiveCreate], permissions: .fileDefault)
-        defer { try? outputFD.close() }
 
         let outputString: String
         switch format {
@@ -102,11 +109,22 @@ struct Generate: AsyncParsableCommand {
           outputString = clashConfig.filterLocalQXLines
         }
 
-        try outputFD.writeAll(outputString.utf8)
+        let outputFD = try FileDescriptor.open(outputPath, .writeOnly, options: overwrite ? [.create, .truncate] : [.create, .exclusiveCreate], permissions: .fileDefault)
+        try outputFD.closeAfter {
+          _ = try outputFD.writeAll(outputString.utf8)
+        }
+
+        if test {
+          print("Test config...")
+          try Clash(configurationFile: outputPath.string, test: true)
+            .launch(use: TSCExecutableLauncher(outputRedirection: .none), options: .init(checkNonZeroExitCode: false))
+        }
       } catch {
         print("Write failed: \(error)")
         _ = FileSyscalls.unlink(.absolute(outputPath))
       }
+
+      print()
     }
 
 

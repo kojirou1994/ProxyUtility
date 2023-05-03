@@ -85,7 +85,10 @@ actor Manager {
         print("Start to update rule subscription \(ruleSubscription.name)")
         let subscriptionData: Data
         if ruleSubscription.isLocalFile {
-          subscriptionData = try Data(contentsOf: URL(fileURLWithPath: ruleSubscription.url))
+          let fileFD = try FileDescriptor.open(FilePath(ruleSubscription.url), .readOnly)
+          subscriptionData = try fileFD.closeAfter {
+            try SystemFileManager.contents(ofFileDescriptor: fileFD)
+          }
         } else {
           subscriptionData = try await load(url: URL(string: ruleSubscription.url)!)
         }

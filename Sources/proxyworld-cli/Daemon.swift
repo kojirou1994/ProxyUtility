@@ -142,7 +142,7 @@ actor Manager {
   /// encoder for cache/stats
   nonisolated private let cacheEncoder: JSONEncoder
 
-  public init(workDir: FilePath, configPath: FilePath, networkOptions: NetworkOptions, options: ProxyWorldConfiguration.GenerateOptions) throws {
+  public init(workDir: FilePath, configPath: FilePath, loadDaemonStats: Bool, networkOptions: NetworkOptions, options: ProxyWorldConfiguration.GenerateOptions) throws {
     self.workDir = workDir
     self.configPath = configPath
     self.networkOptions = networkOptions
@@ -167,7 +167,7 @@ actor Manager {
 
     let decoder = JSONDecoder()
     let statsPath = workDir.appending("stats.json")
-    if SystemFileManager.fileExists(atPath: .absolute(statsPath)) {
+    if loadDaemonStats, SystemFileManager.fileExists(atPath: .absolute(statsPath)) {
       let instanceRootDir = workDir.appending("instances")
       print("load daemon stats")
       daemonStats = try .init(instanceRootPath: instanceRootDir, dataPath: statsPath, decoder: decoder)
@@ -419,6 +419,9 @@ func defaultGeoDBPath() throws -> FilePath {
 
 struct Daemon: AsyncParsableCommand {
 
+  @Option(help: "Custom work dir")
+  var workDir: FilePath?
+
   @Option(help: "Reload config by interval if provided")
   var reloadInterval: Int?
 
@@ -435,8 +438,7 @@ struct Daemon: AsyncParsableCommand {
   var configPath: FilePath
 
   func run() async throws {
-    // TODO: user custom work dir
-    let workDir = try defaultWorkDir()
+    let workDir = try workDir ?? defaultWorkDir()
 
     try SystemFileManager.createDirectoryIntermediately(.absolute(workDir))
 
@@ -449,12 +451,12 @@ struct Daemon: AsyncParsableCommand {
     do {
       try FileSyscalls.lock(lockFile, flags: [.exclusive, .noBlock]).get()
     } catch {
-      print("another daemon already running!")
+      print("another daemon for this work directory (\(workDir) is already running!")
       throw ExitCode(1)
     }
     defer { _ = FileSyscalls.unlock(lockFile) }
 
-    let manager = try Manager(workDir: workDir, configPath: configPath, networkOptions: networkOptions.toInternal, options: options.toInternal())
+    let manager = try Manager(workDir: workDir, configPath: configPath, loadDaemonStats: true, networkOptions: networkOptions.toInternal, options: options.toInternal())
 
     try await manager.cleanUnmanagedProcesses()
 

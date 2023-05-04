@@ -82,7 +82,7 @@ struct Generate: AsyncParsableCommand {
 
   func run() async throws {
 
-    let manager = try Manager(workDir: defaultWorkDir(), configPath: configPath, networkOptions: networkOptions.toInternal, options: options.toInternal())
+    let manager = try Manager(workDir: defaultWorkDir(), configPath: configPath, loadDaemonStats: false, networkOptions: networkOptions.toInternal, options: options.toInternal())
 
     _ = try await manager.updateCaches()
 

@@ -16,6 +16,9 @@ import Command
 #if os(macOS)
 import Proc
 #endif
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 extension SystemFileManager {
   static func contents(ofFile path: FilePath) throws -> Data {

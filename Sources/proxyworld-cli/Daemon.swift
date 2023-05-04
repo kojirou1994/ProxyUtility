@@ -13,7 +13,9 @@ import SystemPackage
 import SystemUp
 import SystemFileManager
 import Command
+#if os(macOS)
 import Proc
+#endif
 
 extension SystemFileManager {
   static func contents(ofFile path: FilePath) throws -> Data {

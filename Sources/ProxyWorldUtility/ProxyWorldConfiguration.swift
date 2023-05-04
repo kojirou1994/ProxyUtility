@@ -6,6 +6,7 @@ import ProxyRule
 import Precondition
 import CUtility
 import SystemUp
+import OrderedCollections
 
 public enum AnyProxyID: Codable {
   case uuid(UUID)
@@ -222,9 +223,9 @@ extension ProxyWorldConfiguration {
         return name
       }
 
-      var selectGroupsProxies: [String: [ClashProxy]] = .init()
-      var urlTestGroupsProxies: [String: [ClashProxy]] = .init()
-      var fallbackGroupsProxies: [String: [ClashProxy]] = .init()
+      var selectGroupsProxies: OrderedDictionary<String, [ClashProxy]> = .init()
+      var urlTestGroupsProxies: OrderedDictionary<String, [ClashProxy]> = .init()
+      var fallbackGroupsProxies: OrderedDictionary<String, [ClashProxy]> = .init()
 
       func genGroups(name: String, groupProxies: [ClashProxy], autogen: Set<ClashConfig.ProxyGroup.ProxyGroupType>?) {
         guard let autogen, !autogen.isEmpty else {

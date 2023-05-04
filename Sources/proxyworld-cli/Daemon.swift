@@ -256,7 +256,11 @@ actor Manager {
       _ = try await updateCaches()
     }
     var newInstancesConfigMap: [UUID: (ProxyWorldConfiguration.InstanceConfig, ClashConfig)] = .init()
-    for config in generateClashConfigs(baseConfig: .init(mode: .rule)) {
+
+    var baseConfig = ClashConfig(mode: .rule)
+    baseConfig.profile?.storeSelected = true
+
+    for config in generateClashConfigs(baseConfig: baseConfig) {
       newInstancesConfigMap[config.0.id] = config
     }
 
@@ -295,12 +299,11 @@ actor Manager {
       print("Launching \(newInstancesConfigMap[instance]!.0.name)")
       let process = try command.spawn()
 
-      let pidFilePath = instancdDir.appending("pid.txt").string
       daemonStats.add(instancdID: instance, pid: process.pid, config: config)
     }
 
     for instanceID in removedInstances {
-      var pid = daemonStats.remove(instancdID: instanceID)
+      let pid = daemonStats.remove(instancdID: instanceID)
       // kill pid, remove files
       print("kill \(pid):", pid.send(signal: SIGKILL))
       print("wait result: ", WaitPID.wait(pid: pid))

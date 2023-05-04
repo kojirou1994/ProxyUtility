@@ -116,7 +116,6 @@ let package = Package(
         "ProxyWorldUtility",
         "QuantumultSupport",
         .product(name: "Precondition", package: "Precondition"),
-        .product(name: "Proc", package: "SystemUp", condition: .when(platforms: [.macOS])),
         .product(name: "SystemUp", package: "SystemUp"),
         .product(name: "SystemFileManager", package: "SystemUp"),
         .product(name: "Command", package: "SystemUp"),
@@ -129,3 +128,8 @@ let package = Package(
       dependencies: ["ProxyUtility", "ProxySubscription", "ProxyRule", "ProxyWorldUtility"]),
   ]
 )
+
+#if os(macOS)
+package.targets[package.targets.firstIndex(where: { $0.name == "proxyworld-cli" })!]
+  .dependencies.append(.product(name: "Proc", package: "SystemUp"))
+#endif

@@ -90,15 +90,21 @@ struct DaemonStats {
       return false
     }
     do {
-      #if os(macOS)
-      let path = try PIDInfo.path(pid: pid.rawValue)
       // TODO: better detection
-      return path.lastComponent?.string == "clash"
+      let path: FilePath
+      #if os(macOS)
+      path = try PIDInfo.path(pid: pid.rawValue)
+      #elseif os(Linux)
+      let full = try Data(contentsOf: URL(fileURLWithPath: "/proc/\(pid)/cmdline"))
+      if full.isEmpty {
+        return false
+      }
+      path = FilePath(String(decoding: full.split(separator: 0, maxSplits: 1)[0], as: UTF8.self))
       #else
       #error("unimplemented")
       #endif
+      return path.lastComponent?.string == "clash"
     } catch {
-
       return false
     }
   }

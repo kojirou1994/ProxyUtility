@@ -1,4 +1,4 @@
-public struct RuleProvider: Codable {
+public struct RuleProvider: Codable, Equatable {
   public init(name: String, description: String, collections: [RuleCollection]) {
     self.name = name
     self.description = description

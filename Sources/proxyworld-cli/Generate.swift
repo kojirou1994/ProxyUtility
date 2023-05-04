@@ -36,6 +36,10 @@ struct GroupNameGenerateOptions: ParsableArguments {
 
   @Option
   var fallbackGroupName: String = "[FALLBACK] %s"
+
+  func toInternal() throws -> ProxyWorldConfiguration.GenerateOptions {
+    try .init(ruleGroupNameFormat: ruleGroupName, urlTestGroupNameFormat: urlTestGroupName, fallbackGroupNameFormat: fallbackGroupName)
+  }
 }
 
 struct NetworkOptions: ParsableArguments {
@@ -78,18 +82,14 @@ struct Generate: AsyncParsableCommand {
 
   func run() async throws {
 
-    let manager = try Manager(configPath: configPath, networkOptions: networkOptions.toInternal)
+    let manager = try Manager(configPath: configPath, networkOptions: networkOptions.toInternal, options: options.toInternal())
 
-    try await manager.refresh()
+    _ = try await manager.updateCaches()
 
     var baseConfig = ClashConfig(mode: .rule)
     baseConfig.profile?.storeSelected = true
 
-    let results = try await manager.generateClashConfigs(
-      baseConfig: baseConfig,
-      options: .init(ruleGroupNameFormat: options.ruleGroupName, urlTestGroupNameFormat: options.urlTestGroupName, fallbackGroupNameFormat: options.fallbackGroupName),
-      fallback: { _ in nil }
-    )
+    let results = await manager.generateClashConfigs(baseConfig: baseConfig)
 
     let configEncoder = YAMLEncoder()
     configEncoder.options.allowUnicode = true

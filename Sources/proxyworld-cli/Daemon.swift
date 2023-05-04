@@ -20,6 +20,28 @@ private func _readConfig(configPath: FilePath) throws -> ProxyWorldConfiguration
   }
 }
 
+struct DaemonState {
+  private var runningClash: [UUID: WaitPID.PID] = .init()
+  internal private(set) var generetedClash: [UUID: ClashConfig] = .init()
+  internal private(set) var instanceIDs: Set<UUID> = .init()
+
+  init() {
+  }
+
+  mutating func add(instancdID: UUID, pid: WaitPID.PID, config: ClashConfig) {
+    runningClash[instancdID] = pid
+    generetedClash[instancdID] = config
+    precondition(instanceIDs.insert(instancdID).inserted)
+  }
+
+  mutating func remove(instancdID: UUID) -> WaitPID.PID {
+    let pid = runningClash.removeValue(forKey: instancdID)!
+    generetedClash[instancdID] = nil
+    precondition(instanceIDs.remove(instancdID) != nil)
+    return pid
+  }
+}
+
 struct ClashProcessInfo {
   let pid: Int32
 }
@@ -30,7 +52,8 @@ actor Manager {
   private var config: ProxyWorldConfiguration
 
   nonisolated
-  public let networkOptions: NetworkOptions
+  private let networkOptions: NetworkOptions
+  public var options: ProxyWorldConfiguration.GenerateOptions
 
   public struct NetworkOptions {
     public let retryLimit: UInt
@@ -43,9 +66,10 @@ actor Manager {
   private var proxyCache = [String: [ProxyConfig]]()
   private var ruleCache = [String: RuleProvider]()
 
-  public init(configPath: FilePath, networkOptions: NetworkOptions) throws {
+  public init(configPath: FilePath, networkOptions: NetworkOptions, options: ProxyWorldConfiguration.GenerateOptions) throws {
     self.configPath = configPath
     self.networkOptions = networkOptions
+    self.options = options
     // TODO: detect proxy env
     let session = URLSession(configuration: .ephemeral)
     let directSession: URLSession? = nil
@@ -57,16 +81,25 @@ actor Manager {
     sessions.forEach {$0.invalidateAndCancel() }
   }
 
+  struct ReloadResult {
+    let configChanged: Bool
+    let sharedChanged: Bool
+  }
+
   /// Reload config
   /// - Returns: true if config changed
-  public func reloadConfig() throws -> Bool {
+  public func reloadConfig() throws -> ReloadResult {
     print(#function)
     let newConfig = try _readConfig(configPath: configPath)
-    let updated = newConfig != config
-    if updated {
+    let configChanged = newConfig != config
+    var sharedChanged = false
+
+    if configChanged {
+      sharedChanged = config.shared != newConfig.shared
       config = newConfig
     }
-    return updated
+
+    return .init(configChanged: configChanged, sharedChanged: sharedChanged)
   }
 
   private func load(url: URL) async throws -> Data {
@@ -83,8 +116,24 @@ actor Manager {
     throw error
   }
 
-  public func refresh() async throws {
+  // MARK: Daemon
+
+  private var deamonStates: DaemonState = .init()
+
+  public func daemonRun(enableUpdating: Bool) async throws {
+    if enableUpdating {
+      try await updateCaches()
+    }
+    let configs = generateClashConfigs(baseConfig: .init(mode: .rule))
+
+    // generate clash configs for each instance
+  }
+
+  /// update subscription and rule caches
+  /// - Returns: true if caches updated
+  public func updateCaches() async throws -> Bool {
     print(#function)
+    let oldCaches = (proxyCache, ruleCache)
     for subscription in config.shared.subscriptions {
       do {
         print("Start to update subscription \(subscription.name)")
@@ -126,14 +175,13 @@ actor Manager {
         print("Error while updating subscription \(ruleSubscription.name), \(error)")
       }
     }
+
+    return oldCaches != (proxyCache, ruleCache)
   }
 
-  public func generateClashConfigs(
-    baseConfig: ClashConfig,
-    options: ProxyWorldConfiguration.GenerateOptions,
-    fallback: (ProxyConfig) -> ClashProxy?) -> [(ProxyWorldConfiguration.InstanceConfig, ClashConfig)] {
-      config.generateClashConfigs(baseConfig: baseConfig, ruleSubscriptionCache: ruleCache, proxySubscriptionCache: proxyCache, options: options, fallback: fallback)
-    }
+  public func generateClashConfigs(baseConfig: ClashConfig) -> [(ProxyWorldConfiguration.InstanceConfig, ClashConfig)] {
+    config.generateClashConfigs(baseConfig: baseConfig, ruleSubscriptionCache: ruleCache, proxySubscriptionCache: proxyCache, options: options)
+  }
 }
 
 struct Daemon: AsyncParsableCommand {
@@ -143,6 +191,9 @@ struct Daemon: AsyncParsableCommand {
 
   @Option(help: "Refresh interval for subscription/rule")
   var refreshInterval: Int = 600
+
+  @OptionGroup(title: "NAME GENERATION")
+  var options: GroupNameGenerateOptions
 
   @OptionGroup(title: "NETWORK")
   var networkOptions: NetworkOptions
@@ -170,7 +221,7 @@ struct Daemon: AsyncParsableCommand {
       throw ExitCode(1)
     }
 
-    let manager = try Manager(configPath: configPath, networkOptions: networkOptions.toInternal)
+    let manager = try Manager(configPath: configPath, networkOptions: networkOptions.toInternal, options: options.toInternal())
 
     if let reloadInterval {
       Task {
@@ -178,9 +229,10 @@ struct Daemon: AsyncParsableCommand {
         while true {
           try await Task.sleep(for: reloadInterval)
           do {
-            if try await manager.reloadConfig() {
+            let reloadResult = try await manager.reloadConfig()
+            if reloadResult.configChanged {
               print("refresh because of updated")
-              try? await manager.refresh()
+              try? await manager.daemonRun(enableUpdating: reloadResult.sharedChanged)
             }
           } catch {
             // cannot reload config
@@ -194,7 +246,7 @@ struct Daemon: AsyncParsableCommand {
 
     let refreshInterval: Duration = .seconds(refreshInterval)
     while true {
-      try? await manager.refresh()
+      try? await manager.daemonRun(enableUpdating: true)
       try await Task.sleep(for: refreshInterval)
     }
   }

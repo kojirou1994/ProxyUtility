@@ -13,33 +13,94 @@ import SystemPackage
 import SystemUp
 import SystemFileManager
 import Command
+import Proc
 
-private func _readConfig(configPath: FilePath) throws -> ProxyWorldConfiguration {
-  let fd = try FileDescriptor.open(configPath, .readOnly)
-  return try fd.closeAfter {
-    try JSONDecoder().kwiftDecode(from: SystemFileManager.contents(ofFileDescriptor: fd) as Data, as: ProxyWorldConfiguration.self)
+extension SystemFileManager {
+  static func contents(ofFile path: FilePath) throws -> Data {
+    let fd = try FileDescriptor.open(path, .readOnly)
+    return try fd.closeAfter {
+      try SystemFileManager.contents(ofFileDescriptor: fd)
+    }
+  }
+
+  static func contents(ofFile path: FilePath) throws -> String {
+    let fd = try FileDescriptor.open(path, .readOnly)
+    return try fd.closeAfter {
+      try SystemFileManager.contents(ofFileDescriptor: fd)
+    }
   }
 }
 
-struct DaemonState {
-  private var runningClash: [UUID: Command.ChildProcess] = .init()
-  internal private(set) var generetedClash: [UUID: ClashConfig] = .init()
-  internal private(set) var instanceIDs: Set<UUID> = .init()
+private func _readConfig(configPath: FilePath) throws -> ProxyWorldConfiguration {
+  try JSONDecoder().kwiftDecode(from: SystemFileManager.contents(ofFile: configPath) as Data, as: ProxyWorldConfiguration.self)
+}
+
+private func _genInstanceWorkDir(workDir: FilePath, instance: UUID) -> FilePath {
+  workDir.appending("instances").appending(instance.uuidString)
+}
+
+struct DaemonStats {
+  private var runningClash: [UUID: WaitPID.PID]
+  internal private(set) var generetedClash: [UUID: ClashConfig]
+  internal private(set) var instanceIDs: Set<UUID>
 
   init() {
+    runningClash = .init()
+    generetedClash = .init()
+    instanceIDs = .init()
   }
 
-  mutating func add(instancdID: UUID, pid: Command.ChildProcess, config: ClashConfig) {
+  init(instanceRootPath: FilePath, dataPath: FilePath, decoder: JSONDecoder) throws {
+    runningClash = try decoder.decode([UUID: WaitPID.PID.RawValue].self, from: SystemFileManager.contents(ofFile: dataPath))
+      .mapValues { WaitPID.PID(rawValue: $0) }
+    instanceIDs = .init(runningClash.keys)
+    generetedClash = .init()
+    let configDecoder = YAMLDecoder()
+    for instanceID in instanceIDs {
+      let configPath = instanceRootPath.appending(instanceID.uuidString).appending("config.yaml")
+      do {
+        let clashConfig = try configDecoder.decode(ClashConfig.self, from: SystemFileManager.contents(ofFile: configPath))
+        generetedClash[instanceID] = clashConfig
+      } catch {
+        print("Cannot read clash config at \(configPath), skipped")
+        fatalError()
+      }
+    }
+  }
+
+  mutating func add(instancdID: UUID, pid: WaitPID.PID, config: ClashConfig) {
     runningClash[instancdID] = pid
     generetedClash[instancdID] = config
     precondition(instanceIDs.insert(instancdID).inserted)
   }
 
-  mutating func remove(instancdID: UUID) -> Command.ChildProcess {
+  mutating func remove(instancdID: UUID) -> WaitPID.PID {
     let pid = runningClash.removeValue(forKey: instancdID)!
     generetedClash[instancdID] = nil
     precondition(instanceIDs.remove(instancdID) != nil)
     return pid
+  }
+
+  func encode(encoder: JSONEncoder) throws -> Data {
+    try encoder.encode(runningClash.mapValues(\.rawValue))
+  }
+
+  func checkProcessRunning(id: UUID) -> Bool {
+    guard let pid = runningClash[id] else {
+      return false
+    }
+    do {
+      #if os(macOS)
+      let path = try PIDInfo.path(pid: pid.rawValue)
+      // TODO: better detection
+      return path.lastComponent?.string == "clash"
+      #else
+      #error("unimplemented")
+      #endif
+    } catch {
+
+      return false
+    }
   }
 }
 
@@ -67,13 +128,19 @@ actor Manager {
   // MARK: Caches
   private let sessions: [URLSession]
 
-  private var proxyCache = [String: [ProxyConfig]]()
-  private var ruleCache = [String: RuleProvider]()
+  private var proxySubscriptionCache: [String : [ProxyConfig]]
+  private var ruleSubscriptionCache: [String: RuleProvider]
 
   // MARK: Runtime Properties Cache
-  private let geoDBPath: FilePath
-  nonisolated
-  public let configEncoder: YAMLEncoder
+  /// ~/.config/clash/Country.mmdb
+  nonisolated private let geoDBPath: FilePath
+  nonisolated private let ruleSubCachePath: FilePath
+  nonisolated private let proxySubCachePath: FilePath
+  nonisolated private let statsPath: FilePath
+  nonisolated public let configEncoder: YAMLEncoder
+
+  /// encoder for cache/stats
+  nonisolated private let cacheEncoder: JSONEncoder
 
   public init(workDir: FilePath, configPath: FilePath, networkOptions: NetworkOptions, options: ProxyWorldConfiguration.GenerateOptions) throws {
     self.workDir = workDir
@@ -81,14 +148,45 @@ actor Manager {
     self.networkOptions = networkOptions
     self.options = options
     self.geoDBPath = try defaultGeoDBPath()
+    self.cacheEncoder = .init()
+    self.ruleSubCachePath = workDir.appending("cache_rule")
+    self.proxySubCachePath = workDir.appending("cache_proxy")
     configEncoder = YAMLEncoder()
     configEncoder.options.allowUnicode = true
     configEncoder.options.sortKeys = true
     // TODO: detect proxy env
     let session = URLSession(configuration: .ephemeral)
-    let directSession: URLSession? = nil
+    var directSession: URLSession?
+    if networkOptions.tryDirectConnect {
+      let config = URLSessionConfiguration.ephemeral
+      config.connectionProxyDictionary = .init()
+      directSession = .init(configuration: config)
+    }
     sessions = [session, directSession].compactMap { $0 }
     config = try _readConfig(configPath: configPath)
+
+    let decoder = JSONDecoder()
+    let statsPath = workDir.appending("stats.json")
+    if SystemFileManager.fileExists(atPath: .absolute(statsPath)) {
+      let instanceRootDir = workDir.appending("instances")
+      print("load daemon stats")
+      daemonStats = try .init(instanceRootPath: instanceRootDir, dataPath: statsPath, decoder: decoder)
+    } else {
+      daemonStats = .init()
+    }
+    do {
+      ruleSubscriptionCache = try decoder.kwiftDecode(from: SystemFileManager.contents(ofFile: ruleSubCachePath))
+      print("rule sub cache loaded")
+    } catch {
+      ruleSubscriptionCache = .init()
+    }
+    do {
+      proxySubscriptionCache = try decoder.kwiftDecode(from: SystemFileManager.contents(ofFile: proxySubCachePath))
+      print("proxy sub cache loaded")
+    } catch {
+      proxySubscriptionCache = .init()
+    }
+    self.statsPath = statsPath
   }
 
   deinit {
@@ -116,6 +214,11 @@ actor Manager {
     return .init(configChanged: configChanged, sharedChanged: sharedChanged)
   }
 
+  private func saveStats() throws {
+    try daemonStats.encode(encoder: cacheEncoder)
+      .write(to: URL(filePath: statsPath.string), options: .atomic)
+  }
+
   private func load(url: URL) async throws -> Data {
     var error: Error!
     for _ in 0...networkOptions.retryLimit {
@@ -132,14 +235,20 @@ actor Manager {
 
   // MARK: Daemon
 
-  private var daemonStates: DaemonState = .init()
+  private var daemonStats: DaemonStats = .init()
 
   public func cleanUnmanagedProcesses() throws {
-
+    for id in daemonStats.instanceIDs {
+      if !daemonStats.checkProcessRunning(id: id) {
+        print("\(id) not running!")
+        _ = daemonStats.remove(instancdID: id)
+      }
+    }
+    try saveStats()
   }
 
   private func genInstanceWorkDir(instance: UUID) -> FilePath {
-    workDir.appending("instances").appending(instance.uuidString)
+    _genInstanceWorkDir(workDir: workDir, instance: instance)
   }
 
   public func daemonRun(enableUpdating: Bool) async throws {
@@ -152,7 +261,7 @@ actor Manager {
     }
 
     // generate clash configs for each instance
-    let oldInstances = daemonStates.instanceIDs
+    let oldInstances = daemonStats.instanceIDs
     let newInstances = Set(newInstancesConfigMap.keys)
 
     let removedInstances = oldInstances.subtracting(newInstances)
@@ -187,14 +296,14 @@ actor Manager {
       let process = try command.spawn()
 
       let pidFilePath = instancdDir.appending("pid.txt").string
-      daemonStates.add(instancdID: instance, pid: process, config: config)
+      daemonStats.add(instancdID: instance, pid: process.pid, config: config)
     }
 
     for instanceID in removedInstances {
-      var pid = daemonStates.remove(instancdID: instanceID)
+      var pid = daemonStats.remove(instancdID: instanceID)
       // kill pid, remove files
-      print("kill \(pid):", pid.pid.send(signal: SIGKILL))
-      print("wait result: ", try pid.wait())
+      print("kill \(pid):", pid.send(signal: SIGKILL))
+      print("wait result: ", WaitPID.wait(pid: pid))
       try? SystemFileManager.remove(genInstanceWorkDir(instance: instanceID)).get()
     }
 
@@ -203,9 +312,12 @@ actor Manager {
     }
 
     for instanceID in stayedInstances {
-      let oldConfig = daemonStates.generetedClash[instanceID]!
+      let oldConfig = daemonStats.generetedClash[instanceID]!
       let newConfig = newInstancesConfigMap[instanceID]!.1
       if oldConfig != newConfig {
+//        print(try! configEncoder.encode(oldConfig))
+//        print("======")
+//        print(try! configEncoder.encode(newConfig))
         let useReload = (oldConfig.httpPort == newConfig.httpPort)
         && (oldConfig.socksPort == newConfig.socksPort)
         && (oldConfig.mixedPort == newConfig.mixedPort)
@@ -217,25 +329,31 @@ actor Manager {
 //        try prepareClash(instance: instanceID, firstTime: false)
       }
     }
+
+    try saveStats()
   }
 
   /// update subscription and rule caches
   /// - Returns: true if caches updated
   public func updateCaches() async throws -> Bool {
     print(#function)
-    let oldCaches = (proxyCache, ruleCache)
+    let oldCaches = (proxySubscriptionCache, ruleSubscriptionCache)
     for subscription in config.shared.subscriptions {
       do {
         print("Start to update subscription \(subscription.name)")
         let responseData = try await load(url: subscription.url)
 
         let content = SubscriptionContent(subscription.type.decode(responseData))
-        print("Success!")
-        if content.metadata.hasUsefulInfo {
-          print("Information: \(content.metadata)")
+        print("Success Parsed!")
+        if content.configs.isEmpty {
+          print("But no nodes, ignored!")
+        } else {
+          if content.metadata.hasUsefulInfo {
+            print("Information: \(content.metadata)")
+          }
+          print("Totally \(content.configs.count) nodes.")
+          proxySubscriptionCache[subscription.id.uuidString] = content.configs
         }
-        print("Totally \(content.configs.count) nodes.")
-        proxyCache[subscription.id.uuidString] = content.configs
 //        if verbose {
 //          content.configs.forEach { config in
 //            print(config)
@@ -260,17 +378,30 @@ actor Manager {
         }
         let decoded = try YAMLDecoder().decode(from: String(decoding: subscriptionData, as: UTF8.self)) as RuleProvider
         print("Success!")
-        ruleCache[ruleSubscription.id.uuidString] = decoded
+        ruleSubscriptionCache[ruleSubscription.id.uuidString] = decoded
       } catch {
         print("Error while updating subscription \(ruleSubscription.name), \(error)")
       }
     }
 
-    return oldCaches != (proxyCache, ruleCache)
+    var cacheUpdated: Bool = false
+
+    if oldCaches.0 != proxySubscriptionCache {
+      cacheUpdated = true
+      try cacheEncoder.encode(proxySubscriptionCache)
+        .write(to: URL(filePath: proxySubCachePath.string), options: .atomic)
+    }
+    if oldCaches.1 != ruleSubscriptionCache {
+      cacheUpdated = true
+      try cacheEncoder.encode(ruleSubscriptionCache)
+        .write(to: URL(filePath: ruleSubCachePath.string), options: .atomic)
+    }
+
+    return cacheUpdated
   }
 
   public func generateClashConfigs(baseConfig: ClashConfig) -> [(ProxyWorldConfiguration.InstanceConfig, ClashConfig)] {
-    config.generateClashConfigs(baseConfig: baseConfig, ruleSubscriptionCache: ruleCache, proxySubscriptionCache: proxyCache, options: options)
+    config.generateClashConfigs(baseConfig: baseConfig, ruleSubscriptionCache: ruleSubscriptionCache, proxySubscriptionCache: proxySubscriptionCache, options: options)
   }
 }
 

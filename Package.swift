@@ -116,6 +116,7 @@ let package = Package(
         "ProxyWorldUtility",
         "QuantumultSupport",
         .product(name: "Precondition", package: "Precondition"),
+        .product(name: "Proc", package: "SystemUp"),
         .product(name: "SystemUp", package: "SystemUp"),
         .product(name: "SystemFileManager", package: "SystemUp"),
         .product(name: "Command", package: "SystemUp"),

@@ -21,7 +21,7 @@ public protocol LosslessShadowsocksConvertible {
   var shadowsocks: ShadowsocksConfig { get }
 }
 
-public struct ShadowsocksConfig: ShadowsocksProtocol, Equatable, Encodable {
+public struct ShadowsocksConfig: ShadowsocksProtocol, Equatable, Codable {
   public var localType: LocalType { .socks5 }
 
   public func localArguments(configPath: String) -> [String] {
@@ -66,6 +66,27 @@ public struct ShadowsocksConfig: ShadowsocksProtocol, Equatable, Encodable {
     case localPort = "local_port"
     case password, timeout, method, plugin
     case pluginOpts = "plugin_opts"
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+
+    self.id = try container.decode(String.self, forKey: .id)
+    self.server = try container.decode(String.self, forKey: .server)
+    self.serverPort = try container.decode(Int.self, forKey: .serverPort)
+    self.localAddress = try container.decodeIfPresent(String.self, forKey: .localAddress)
+    self.localPort = try container.decode(Int.self, forKey: .localPort)
+    self.password = try container.decode(String.self, forKey: .password)
+    self.timeout = try container.decode(Int.self, forKey: .timeout)
+    self.mode = try container.decode(ShadowsocksConfig.Mode.self, forKey: .mode)
+    self.method = try container.decode(ShadowsocksEnryptMethod.self, forKey: .method)
+
+    if let plugin = try container.decodeIfPresent(String.self, forKey: .plugin),
+       let pluginOpts = try container.decodeIfPresent(String.self, forKey: .pluginOpts) {
+      self.plugin = .init(type: .local, plugin: plugin, pluginOpts: pluginOpts)
+    } else {
+      self.plugin = nil
+    }
   }
 
   public func encode(to encoder: Encoder) throws {

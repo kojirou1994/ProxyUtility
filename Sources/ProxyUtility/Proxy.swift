@@ -46,7 +46,7 @@ public struct Proxy: Equatable {
   }
 }
 
-public enum ProxyConfig: Equatable, UriRepresentable {
+public enum ProxyConfig: Equatable, UriRepresentable, Codable {
 
   case ss(ShadowsocksConfig)
   case ssr(ShadowsocksRConfig)

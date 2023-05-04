@@ -12,6 +12,7 @@ import Precondition
 import SystemPackage
 import SystemUp
 import SystemFileManager
+import Command
 
 private func _readConfig(configPath: FilePath) throws -> ProxyWorldConfiguration {
   let fd = try FileDescriptor.open(configPath, .readOnly)
@@ -21,20 +22,20 @@ private func _readConfig(configPath: FilePath) throws -> ProxyWorldConfiguration
 }
 
 struct DaemonState {
-  private var runningClash: [UUID: WaitPID.PID] = .init()
+  private var runningClash: [UUID: Command.ChildProcess] = .init()
   internal private(set) var generetedClash: [UUID: ClashConfig] = .init()
   internal private(set) var instanceIDs: Set<UUID> = .init()
 
   init() {
   }
 
-  mutating func add(instancdID: UUID, pid: WaitPID.PID, config: ClashConfig) {
+  mutating func add(instancdID: UUID, pid: Command.ChildProcess, config: ClashConfig) {
     runningClash[instancdID] = pid
     generetedClash[instancdID] = config
     precondition(instanceIDs.insert(instancdID).inserted)
   }
 
-  mutating func remove(instancdID: UUID) -> WaitPID.PID {
+  mutating func remove(instancdID: UUID) -> Command.ChildProcess {
     let pid = runningClash.removeValue(forKey: instancdID)!
     generetedClash[instancdID] = nil
     precondition(instanceIDs.remove(instancdID) != nil)
@@ -48,7 +49,10 @@ struct ClashProcessInfo {
 
 actor Manager {
 
+  nonisolated
+  public let workDir: FilePath
   private let configPath: FilePath
+
   private var config: ProxyWorldConfiguration
 
   nonisolated
@@ -66,10 +70,20 @@ actor Manager {
   private var proxyCache = [String: [ProxyConfig]]()
   private var ruleCache = [String: RuleProvider]()
 
-  public init(configPath: FilePath, networkOptions: NetworkOptions, options: ProxyWorldConfiguration.GenerateOptions) throws {
+  // MARK: Runtime Properties Cache
+  private let geoDBPath: FilePath
+  nonisolated
+  public let configEncoder: YAMLEncoder
+
+  public init(workDir: FilePath, configPath: FilePath, networkOptions: NetworkOptions, options: ProxyWorldConfiguration.GenerateOptions) throws {
+    self.workDir = workDir
     self.configPath = configPath
     self.networkOptions = networkOptions
     self.options = options
+    self.geoDBPath = try defaultGeoDBPath()
+    configEncoder = YAMLEncoder()
+    configEncoder.options.allowUnicode = true
+    configEncoder.options.sortKeys = true
     // TODO: detect proxy env
     let session = URLSession(configuration: .ephemeral)
     let directSession: URLSession? = nil
@@ -118,15 +132,91 @@ actor Manager {
 
   // MARK: Daemon
 
-  private var deamonStates: DaemonState = .init()
+  private var daemonStates: DaemonState = .init()
+
+  public func cleanUnmanagedProcesses() throws {
+
+  }
+
+  private func genInstanceWorkDir(instance: UUID) -> FilePath {
+    workDir.appending("instances").appending(instance.uuidString)
+  }
 
   public func daemonRun(enableUpdating: Bool) async throws {
     if enableUpdating {
-      try await updateCaches()
+      _ = try await updateCaches()
     }
-    let configs = generateClashConfigs(baseConfig: .init(mode: .rule))
+    var newInstancesConfigMap: [UUID: (ProxyWorldConfiguration.InstanceConfig, ClashConfig)] = .init()
+    for config in generateClashConfigs(baseConfig: .init(mode: .rule)) {
+      newInstancesConfigMap[config.0.id] = config
+    }
 
     // generate clash configs for each instance
+    let oldInstances = daemonStates.instanceIDs
+    let newInstances = Set(newInstancesConfigMap.keys)
+
+    let removedInstances = oldInstances.subtracting(newInstances)
+    let stayedInstances = oldInstances.intersection(newInstances)
+    let addedInstances = newInstances.subtracting(oldInstances)
+
+    print("removed", removedInstances)
+    print("stayed", stayedInstances)
+    print("added", addedInstances)
+
+    func prepareClash(instance: UUID, firstTime: Bool) throws {
+      let instancdDir = genInstanceWorkDir(instance: instance)
+      try SystemFileManager.createDirectoryIntermediately(.absolute(instancdDir))
+      if firstTime {
+        let fakeDBPath = instancdDir.appending("Country.mmdb")
+        if !SystemFileManager.fileExists(atPath: .absolute(fakeDBPath)) {
+          try FileSyscalls.createSymbolicLink(.absolute(fakeDBPath), toDestination: geoDBPath).get()
+        }
+      }
+      let configPath = instancdDir.appending("config.yaml").string
+      let config = newInstancesConfigMap[instance]!.1
+      let encoded = try configEncoder.encode(config)
+      try encoded.write(toFile: configPath, atomically: true, encoding: .utf8)
+
+      let exe = Clash(configurationDirectory: instancdDir.string, configurationFile: configPath)
+      var command = Command(executable: "clash", arg0: nil, arguments: exe.arguments)
+      command.stdin = .null
+      command.stdout = .inherit
+      command.stderr = .inherit
+
+      print("Launching \(newInstancesConfigMap[instance]!.0.name)")
+      let process = try command.spawn()
+
+      let pidFilePath = instancdDir.appending("pid.txt").string
+      daemonStates.add(instancdID: instance, pid: process, config: config)
+    }
+
+    for instanceID in removedInstances {
+      var pid = daemonStates.remove(instancdID: instanceID)
+      // kill pid, remove files
+      print("kill \(pid):", pid.pid.send(signal: SIGKILL))
+      print("wait result: ", try pid.wait())
+      try? SystemFileManager.remove(genInstanceWorkDir(instance: instanceID)).get()
+    }
+
+    for instanceID in addedInstances {
+      try prepareClash(instance: instanceID, firstTime: true)
+    }
+
+    for instanceID in stayedInstances {
+      let oldConfig = daemonStates.generetedClash[instanceID]!
+      let newConfig = newInstancesConfigMap[instanceID]!.1
+      if oldConfig != newConfig {
+        let useReload = (oldConfig.httpPort == newConfig.httpPort)
+        && (oldConfig.socksPort == newConfig.socksPort)
+        && (oldConfig.mixedPort == newConfig.mixedPort)
+        && (oldConfig.externalController == newConfig.externalController)
+        // TODO: add more checks like interface
+
+        // reload or restart process
+        print("Unimplemented changed: \(newInstancesConfigMap[instanceID]!.0.name)")
+//        try prepareClash(instance: instanceID, firstTime: false)
+      }
+    }
   }
 
   /// update subscription and rule caches
@@ -184,6 +274,18 @@ actor Manager {
   }
 }
 
+func defaultWorkDir() throws -> FilePath {
+  try FilePath(PosixEnvironment.get(key: "HOME").unwrap("no HOME env")).appending(".config/proxy-world")
+}
+
+func defaultClashConfigDir() throws -> FilePath {
+  try FilePath(PosixEnvironment.get(key: "HOME").unwrap("no HOME env")).appending(".config/clash")
+}
+
+func defaultGeoDBPath() throws -> FilePath {
+  try defaultClashConfigDir().appending("Country.mmdb")
+}
+
 struct Daemon: AsyncParsableCommand {
 
   @Option(help: "Reload config by interval if provided")
@@ -203,14 +305,13 @@ struct Daemon: AsyncParsableCommand {
 
   func run() async throws {
     // TODO: user custom work dir
-    let workDir = try FilePath(PosixEnvironment.get(key: "HOME").unwrap("no HOME env")).appending(".config/proxy-world")
+    let workDir = try defaultWorkDir()
 
     try SystemFileManager.createDirectoryIntermediately(.absolute(workDir))
 
     let lockFilePath = workDir.appending(".lock")
     let lockFile = try FileDescriptor.open(lockFilePath, .readOnly, options: [.create, .truncate], permissions: .fileDefault)
     defer {
-      _ = FileSyscalls.unlock(lockFile)
       try? lockFile.close()
     }
 
@@ -220,8 +321,11 @@ struct Daemon: AsyncParsableCommand {
       print("another daemon already running!")
       throw ExitCode(1)
     }
+    defer { _ = FileSyscalls.unlock(lockFile) }
 
-    let manager = try Manager(configPath: configPath, networkOptions: networkOptions.toInternal, options: options.toInternal())
+    let manager = try Manager(workDir: workDir, configPath: configPath, networkOptions: networkOptions.toInternal, options: options.toInternal())
+
+    try await manager.cleanUnmanagedProcesses()
 
     if let reloadInterval {
       Task {
@@ -231,7 +335,7 @@ struct Daemon: AsyncParsableCommand {
           do {
             let reloadResult = try await manager.reloadConfig()
             if reloadResult.configChanged {
-              print("refresh because of updated")
+              print("run daemon because of updated")
               try? await manager.daemonRun(enableUpdating: reloadResult.sharedChanged)
             }
           } catch {

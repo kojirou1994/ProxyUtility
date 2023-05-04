@@ -46,7 +46,7 @@ struct NetworkOptions: ParsableArguments {
   @Option
   var retryLimit: UInt = 2
 
-  @Flag
+  @Flag(inversion: .prefixedNo)
   var tryDirect: Bool = true
 
   var toInternal: Manager.NetworkOptions {
@@ -82,7 +82,7 @@ struct Generate: AsyncParsableCommand {
 
   func run() async throws {
 
-    let manager = try Manager(configPath: configPath, networkOptions: networkOptions.toInternal, options: options.toInternal())
+    let manager = try Manager(workDir: defaultWorkDir(), configPath: configPath, networkOptions: networkOptions.toInternal, options: options.toInternal())
 
     _ = try await manager.updateCaches()
 
@@ -90,10 +90,6 @@ struct Generate: AsyncParsableCommand {
     baseConfig.profile?.storeSelected = true
 
     let results = await manager.generateClashConfigs(baseConfig: baseConfig)
-
-    let configEncoder = YAMLEncoder()
-    configEncoder.options.allowUnicode = true
-    configEncoder.options.sortKeys = true
 
     let test: Bool
     do {
@@ -115,7 +111,7 @@ struct Generate: AsyncParsableCommand {
         let outputString: String
         switch format {
         case .clash:
-          outputString = try configEncoder.encode(clashConfig)
+          outputString = try manager.configEncoder.encode(clashConfig)
         case .qx:
           outputString = clashConfig.quantumultXConfig
         case .qxServer:

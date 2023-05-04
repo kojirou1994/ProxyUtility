@@ -118,6 +118,7 @@ let package = Package(
         .product(name: "Precondition", package: "Precondition"),
         .product(name: "SystemUp", package: "SystemUp"),
         .product(name: "SystemFileManager", package: "SystemUp"),
+        .product(name: "Command", package: "SystemUp"),
         .product(name: "TSCExecutableLauncher", package: "Executable"),
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]

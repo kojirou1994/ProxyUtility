@@ -224,7 +224,7 @@ actor Manager {
 
   private func saveStats() throws {
     try daemonStats.encode(encoder: cacheEncoder)
-      .write(to: URL(filePath: statsPath.string), options: .atomic)
+      .write(to: URL(fileURLWithPath: statsPath.string), options: .atomic)
   }
 
   private func load(url: URL) async throws -> Data {
@@ -400,12 +400,12 @@ actor Manager {
     if oldCaches.0 != proxySubscriptionCache {
       cacheUpdated = true
       try cacheEncoder.encode(proxySubscriptionCache)
-        .write(to: URL(filePath: proxySubCachePath.string), options: .atomic)
+        .write(to: URL(fileURLWithPath: proxySubCachePath.string), options: .atomic)
     }
     if oldCaches.1 != ruleSubscriptionCache {
       cacheUpdated = true
       try cacheEncoder.encode(ruleSubscriptionCache)
-        .write(to: URL(filePath: ruleSubCachePath.string), options: .atomic)
+        .write(to: URL(fileURLWithPath: ruleSubCachePath.string), options: .atomic)
     }
 
     return cacheUpdated

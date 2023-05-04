@@ -232,10 +232,16 @@ actor Manager {
 
   private func load(url: URL) async throws -> Data {
     var error: Error!
+    let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 20)
+
     for _ in 0...networkOptions.retryLimit {
       for session in sessions {
         do {
-          return try await session.data(for: URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 20)).0
+          #if os(macOS)
+          return try await session.data(for: request).0
+          #else
+          return try session.syncResultTask(with: request).get().data
+          #endif
         } catch let e {
           error = e
         }

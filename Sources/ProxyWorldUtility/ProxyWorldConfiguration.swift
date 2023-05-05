@@ -130,7 +130,8 @@ extension ProxyWorldConfiguration {
                 addDirectToMainProxy: Bool, finalDirect: Bool,
                 logLevel: ClashConfig.LogLevel, allowLan: Bool,
                 ipv6: Bool,
-                httpPort: Int?, socksPort: Int?, apiPort: Int) {
+                httpPort: Int?, socksPort: Int?, apiPort: Int,
+                interfaceName: String?, bindAddress: String?) {
       self.mainProxyGroupName = mainProxyName
       self.userProxyGroupName = userProxyGroupName
       self.addDirectToMainProxy = addDirectToMainProxy
@@ -141,6 +142,8 @@ extension ProxyWorldConfiguration {
       self.socksPort = socksPort
       self.apiPort = apiPort
       self.ipv6 = ipv6
+      self.interfaceName = interfaceName
+      self.bindAddress = bindAddress
     }
 
     public var ipv6: Bool
@@ -164,6 +167,8 @@ extension ProxyWorldConfiguration {
     public var mixedPort: Int?
     public var apiPort: Int
     public var apiBindAddress: String?
+    public var interfaceName: String?
+    public var bindAddress: String?
     /// not working now, set this to Charles proxy or something
     public var overrideDirect: String?
 
@@ -435,6 +440,8 @@ extension ProxyWorldConfiguration {
         config.dns = instance.dns
       }
       config.proxies = outputProxies
+      config.interfaceName = instance.normal.interfaceName
+      config.bindAddress = instance.normal.bindAddress
 
       return (instance, config)
     }

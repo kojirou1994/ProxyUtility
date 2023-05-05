@@ -268,9 +268,9 @@ actor Manager {
     _genInstanceWorkDir(workDir: workDir, instance: instance)
   }
 
-  public func daemonRun(enableUpdating: Bool) async throws {
+  public func daemonRun(enableUpdating: Bool) async {
     if enableUpdating {
-      _ = try await updateCaches()
+      _ = try? await updateCaches()
     }
     var newInstancesConfigMap: [UUID: (ProxyWorldConfiguration.InstanceConfig, ClashConfig)] = .init()
 
@@ -294,24 +294,23 @@ actor Manager {
     print("added", addedInstances)
 
     func prepareClash(instance: UUID, firstTime: Bool) throws {
-      let instancdDir = genInstanceWorkDir(instance: instance)
-      try SystemFileManager.createDirectoryIntermediately(.absolute(instancdDir))
+      let instanceDir = genInstanceWorkDir(instance: instance)
+      try SystemFileManager.createDirectoryIntermediately(.absolute(instanceDir))
       if firstTime {
-        let fakeDBPath = instancdDir.appending("Country.mmdb")
+        let fakeDBPath = instanceDir.appending("Country.mmdb")
         if !SystemFileManager.fileExists(atPath: .absolute(fakeDBPath)) {
           try FileSyscalls.createSymbolicLink(.absolute(fakeDBPath), toDestination: geoDBPath).get()
         }
       }
-      let configPath = instancdDir.appending("config.yaml").string
+      let configPath = instanceDir.appending("config.yaml").string
       let config = newInstancesConfigMap[instance]!.1
       let encoded = try configEncoder.encode(config)
       try encoded.write(toFile: configPath, atomically: true, encoding: .utf8)
 
-      let exe = Clash(configurationDirectory: instancdDir.string, configurationFile: configPath)
-      var command = Command(executable: "clash", arg0: nil, arguments: exe.arguments)
-      command.stdin = .null
+      let exe = Clash(configurationDirectory: instanceDir.string, configurationFile: configPath)
+      var command = Command(executable: "clash", arguments: exe.arguments)
+      command.defaultIO = .null
       command.stdout = .inherit
-      command.stderr = .inherit
 
       print("Launching \(newInstancesConfigMap[instance]!.0.name)")
       let process = try command.spawn()
@@ -322,13 +321,17 @@ actor Manager {
     for instanceID in removedInstances {
       let pid = daemonStats.remove(instancdID: instanceID)
       // kill pid, remove files
-      print("kill \(pid):", pid.send(signal: SIGKILL))
+      print("kill \(pid.rawValue):", pid.send(signal: SIGKILL))
       print("wait result: ", WaitPID.wait(pid: pid))
       try? SystemFileManager.remove(genInstanceWorkDir(instance: instanceID)).get()
     }
 
     for instanceID in addedInstances {
-      try prepareClash(instance: instanceID, firstTime: true)
+      do {
+        try prepareClash(instance: instanceID, firstTime: true)
+      } catch {
+        print("FAILED TO SETUP CLASH \(instanceID) \(newInstancesConfigMap[instanceID]!.0.name)")
+      }
     }
 
     for instanceID in stayedInstances {
@@ -350,7 +353,11 @@ actor Manager {
       }
     }
 
-    try saveStats()
+    do {
+      try saveStats()
+    } catch {
+      print("FATAL ERROR saving stats: \(error)")
+    }
   }
 
   /// update subscription and rule caches

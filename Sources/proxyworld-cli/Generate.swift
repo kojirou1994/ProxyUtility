@@ -49,8 +49,11 @@ struct NetworkOptions: ParsableArguments {
   @Flag(inversion: .prefixedNo)
   var tryDirect: Bool = true
 
+  @Option(help: "http timeout seconds")
+  var timeout: UInt = 10
+
   var toInternal: Manager.NetworkOptions {
-    .init(retryLimit: retryLimit, tryDirectConnect: tryDirect)
+    .init(retryLimit: retryLimit, tryDirectConnect: tryDirect, timeoutInterval: .init(timeout))
   }
 }
 

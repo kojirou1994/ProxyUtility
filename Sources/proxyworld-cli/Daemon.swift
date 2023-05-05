@@ -135,6 +135,7 @@ actor Manager {
     public let retryLimit: UInt
     // try direct connection if proxy env detected
     public let tryDirectConnect: Bool
+    public let timeoutInterval: TimeInterval
   }
   // MARK: Caches
   private let sessions: [URLSession]
@@ -232,7 +233,7 @@ actor Manager {
 
   private func load(url: URL) async throws -> Data {
     var error: Error!
-    let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 20)
+    let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: networkOptions.timeoutInterval)
 
     for _ in 0...networkOptions.retryLimit {
       for session in sessions {

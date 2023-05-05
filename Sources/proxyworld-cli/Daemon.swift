@@ -270,6 +270,10 @@ actor Manager {
   }
 
   public func daemonRun(enableUpdating: Bool) async {
+    print("daemon running started, don't kill this process")
+    defer {
+      print("daemon running finished, you can exit now")
+    }
     if enableUpdating {
       _ = try? await updateCaches()
     }

@@ -323,12 +323,16 @@ actor Manager {
       daemonStats.add(instancdID: instance, pid: process.pid, config: config)
     }
 
-    for instanceID in removedInstances {
+    func kill(instanceID: UUID) {
       let pid = daemonStats.remove(instancdID: instanceID)
       // kill pid, remove files
       print("kill \(pid.rawValue):", pid.send(signal: SIGKILL))
       print("wait result: ", WaitPID.wait(pid: pid))
       try? SystemFileManager.remove(genInstanceWorkDir(instance: instanceID)).get()
+    }
+
+    for instanceID in removedInstances {
+      kill(instanceID: instanceID)
     }
 
     for instanceID in addedInstances {
@@ -343,18 +347,20 @@ actor Manager {
       let oldConfig = daemonStats.generetedClash[instanceID]!
       let newConfig = newInstancesConfigMap[instanceID]!.1
       if oldConfig != newConfig {
-//        print(try! configEncoder.encode(oldConfig))
-//        print("======")
-//        print(try! configEncoder.encode(newConfig))
         let useReload = (oldConfig.httpPort == newConfig.httpPort)
         && (oldConfig.socksPort == newConfig.socksPort)
         && (oldConfig.mixedPort == newConfig.mixedPort)
         && (oldConfig.externalController == newConfig.externalController)
         // TODO: add more checks like interface
 
+        print("RESTART CLASH \(newInstancesConfigMap[instanceID]!.0.name)")
         // reload or restart process
-        print("Unimplemented changed: \(newInstancesConfigMap[instanceID]!.0.name)")
-//        try prepareClash(instance: instanceID, firstTime: false)
+        kill(instanceID: instanceID)
+        do {
+          try prepareClash(instance: instanceID, firstTime: true)
+        } catch {
+          print("FAILED TO SETUP CLASH \(instanceID) \(newInstancesConfigMap[instanceID]!.0.name)")
+        }
       }
     }
 

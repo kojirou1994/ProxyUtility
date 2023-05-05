@@ -497,7 +497,7 @@ struct Daemon: AsyncParsableCommand {
             let reloadResult = try await manager.reloadConfig()
             if reloadResult.configChanged {
               print("run daemon because of updated")
-              try? await manager.daemonRun(enableUpdating: reloadResult.sharedChanged)
+              await manager.daemonRun(enableUpdating: reloadResult.sharedChanged)
             }
           } catch {
             // cannot reload config
@@ -511,8 +511,8 @@ struct Daemon: AsyncParsableCommand {
 
     let refreshInterval: Duration = .seconds(refreshInterval)
     while true {
-      try? await manager.daemonRun(enableUpdating: true)
-      try await Task.sleep(for: refreshInterval)
+      await manager.daemonRun(enableUpdating: true)
+      try? await Task.sleep(for: refreshInterval)
     }
   }
 }

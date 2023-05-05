@@ -9,6 +9,7 @@ struct ProxyWorldCLI: AsyncParsableCommand {
       subcommands: [
         Generate.self,
         Daemon.self,
+        UpdateGeodb.self,
       ]
     )
   }

@@ -451,8 +451,8 @@ func defaultClashConfigDir() throws -> FilePath {
   try FilePath(PosixEnvironment.get(key: "HOME").unwrap("no HOME env")).appending(".config/clash")
 }
 
-func defaultGeoDBPath() throws -> FilePath {
-  try defaultClashConfigDir().appending("Country.mmdb")
+func defaultGeoDBPath(rootPath: FilePath? = nil) throws -> FilePath {
+  try (rootPath ?? defaultClashConfigDir()).appending("Country.mmdb")
 }
 
 struct Daemon: AsyncParsableCommand {

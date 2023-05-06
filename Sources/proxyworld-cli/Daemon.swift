@@ -20,6 +20,7 @@ import AsyncHTTPClient
 import ProxyInfo
 import AsyncHTTPClientProxy
 import NIO
+import NIOFoundationCompat
 
 extension SystemFileManager {
   static func contents(ofFile path: FilePath) throws -> Data {

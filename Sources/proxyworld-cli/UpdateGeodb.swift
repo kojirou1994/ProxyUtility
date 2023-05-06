@@ -46,10 +46,9 @@ struct UpdateGeodb: AsyncParsableCommand {
       print("Clash exit status:", try! process.wait())
     }
 
-    let stream = try FileStream.open(process.stdout.unwrap("process's stdout is not set properly").duplicate(), mode: .read()).get()
+    let stream = try FileStream.open(process.pipes.takeStdOut().unwrap("process's stdout is not set properly").local, mode: .read()).get()
     defer { _ = stream.close() }
     try withUnsafeTemporaryAllocation(of: CChar.self, capacity: 4096) { buffer in
-      strlen(buffer.baseAddress!)
       guard stream.getLine(into: buffer) else {
         throw UpdateError.readClashOutput
       }
@@ -74,6 +73,10 @@ struct UpdateGeodb: AsyncParsableCommand {
       } else {
         print("Invalid output line 1:")
         print(line1)
+      }
+      // read to end
+      while !stream.isEOF {
+        _ = stream.read(into: buffer)
       }
     }
   }

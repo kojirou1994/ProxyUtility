@@ -16,9 +16,10 @@ import Command
 #if os(macOS)
 import Proc
 #endif
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
+import AsyncHTTPClient
+import ProxyInfo
+import AsyncHTTPClientProxy
+import NIO
 
 extension SystemFileManager {
   static func contents(ofFile path: FilePath) throws -> Data {
@@ -131,14 +132,33 @@ actor Manager {
   private let networkOptions: NetworkOptions
   public var options: ProxyWorldConfiguration.GenerateOptions
 
+  struct HTTPClients {
+    internal init(proxy: HTTPClient?, direct: HTTPClient) {
+      self.proxy = proxy
+      self.direct = direct
+      clients = [proxy, direct].compactMap { $0 }
+    }
+
+    let proxy: HTTPClient?
+    let direct: HTTPClient
+
+    let clients: [HTTPClient]
+  }
+
   public struct NetworkOptions {
+    public init(retryLimit: UInt, tryDirectConnect: Bool, timeoutInterval: some FixedWidthInteger) {
+      self.retryLimit = retryLimit
+      self.tryDirectConnect = tryDirectConnect
+      self.timeoutInterval = .seconds(numericCast(timeoutInterval))
+    }
+
     public let retryLimit: UInt
     // try direct connection if proxy env detected
     public let tryDirectConnect: Bool
-    public let timeoutInterval: TimeInterval
+    public let timeoutInterval: TimeAmount
   }
   // MARK: Caches
-  private let sessions: [URLSession]
+  private let http: HTTPClients
 
   private var proxySubscriptionCache: [String : [ProxyConfig]]
   private var ruleSubscriptionCache: [String: RuleProvider]
@@ -166,15 +186,16 @@ actor Manager {
     configEncoder = YAMLEncoder()
     configEncoder.options.allowUnicode = true
     configEncoder.options.sortKeys = true
-    // TODO: detect proxy env
-    let session = URLSession(configuration: .ephemeral)
-    var directSession: URLSession?
-    if networkOptions.tryDirectConnect {
-      let config = URLSessionConfiguration.ephemeral
-      config.connectionProxyDictionary = .init()
-      directSession = .init(configuration: config)
+    do {
+      let proxyEnv = ProxyEnvironment( environment: PosixEnvironment.global.environment, parseUppercaseKey: true)
+      var proxyHTTP: HTTPClient?
+      if !proxyEnv.isEmpty {
+        print("http client proxy enabled")
+        proxyHTTP = .init(eventLoopGroupProvider: .createNew, configuration: .init(proxy: .environment(proxyEnv)))
+      }
+      let directHTTP = HTTPClient(eventLoopGroupProvider: .createNew)
+      self.http = .init(proxy: proxyHTTP, direct: directHTTP)
     }
-    sessions = [session, directSession].compactMap { $0 }
     config = try _readConfig(configPath: configPath)
 
     let decoder = JSONDecoder()
@@ -202,7 +223,8 @@ actor Manager {
   }
 
   deinit {
-    sessions.forEach {$0.invalidateAndCancel() }
+    try? http.direct.syncShutdown()
+    try? http.proxy?.syncShutdown()
   }
 
   struct ReloadResult {
@@ -233,16 +255,14 @@ actor Manager {
 
   private func load(url: URL) async throws -> Data {
     var error: Error!
-    let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: networkOptions.timeoutInterval)
+    let request = try HTTPClient.Request(url: url, method: .GET)
 
-    for _ in 0...networkOptions.retryLimit {
-      for session in sessions {
+    for client in http.clients {
+      for _ in 0...networkOptions.retryLimit {
         do {
-          #if os(macOS)
-          return try await session.data(for: request).0
-          #else
-          return try session.syncResultTask(with: request).get().data
-          #endif
+          var body = try await client.execute(request: request, deadline: .now() + networkOptions.timeoutInterval)
+            .get().body.unwrap()
+          return try body.readData(length: body.readableBytes).unwrap()
         } catch let e {
           error = e
         }

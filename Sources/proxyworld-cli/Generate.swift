@@ -53,7 +53,7 @@ struct NetworkOptions: ParsableArguments {
   var timeout: UInt = 10
 
   var toInternal: Manager.NetworkOptions {
-    .init(retryLimit: retryLimit, tryDirectConnect: tryDirect, timeoutInterval: .init(timeout))
+    .init(retryLimit: retryLimit, tryDirectConnect: tryDirect, timeoutInterval: timeout)
   }
 }
 

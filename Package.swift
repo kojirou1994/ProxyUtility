@@ -100,6 +100,7 @@ let package = Package(
         "ProxySubscription",
         .product(name: "SystemUp", package: "SystemUp"),
         .product(name: "OrderedCollections", package: "swift-collections"),
+        .product(name: "AsyncHTTPClientProxy", package: "ProxyInfo"),
       ]
     ),
     .executableTarget(

@@ -540,10 +540,13 @@ struct Daemon: AsyncParsableCommand {
       print("reload disabled")
     }
 
+    // first time
+    await manager.daemonRun(enableUpdating: !networkOptions.skipFirstRefresh)
+
     let refreshInterval: Duration = .seconds(refreshInterval)
     while true {
-      await manager.daemonRun(enableUpdating: true)
       try? await Task.sleep(for: refreshInterval)
+      await manager.daemonRun(enableUpdating: true)
     }
   }
 }

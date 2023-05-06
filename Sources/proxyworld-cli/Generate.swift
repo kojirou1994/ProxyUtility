@@ -55,6 +55,9 @@ struct NetworkOptions: ParsableArguments {
   var toInternal: Manager.NetworkOptions {
     .init(retryLimit: retryLimit, tryDirectConnect: tryDirect, timeoutInterval: timeout)
   }
+
+  @Flag(help: "Skip first refresh, which means only use disk cache")
+  var skipFirstRefresh: Bool = false
 }
 
 struct Generate: AsyncParsableCommand {
@@ -87,7 +90,9 @@ struct Generate: AsyncParsableCommand {
 
     let manager = try Manager(workDir: defaultWorkDir(), configPath: configPath, loadDaemonStats: false, networkOptions: networkOptions.toInternal, options: options.toInternal())
 
-    _ = try await manager.updateCaches()
+    if networkOptions.skipFirstRefresh {
+      _ = try await manager.updateCaches()
+    }
 
     var baseConfig = ClashConfig(mode: .rule)
     baseConfig.profile?.storeSelected = true

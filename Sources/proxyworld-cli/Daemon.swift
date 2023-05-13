@@ -344,16 +344,18 @@ actor Manager {
       daemonStats.add(instancdID: instance, pid: process.pid, config: config)
     }
 
-    func kill(instanceID: UUID) {
+    func kill(instanceID: UUID, removeFiles: Bool) {
       let pid = daemonStats.remove(instancdID: instanceID)
       // kill pid, remove files
       print("kill \(pid.rawValue):", pid.send(signal: SIGKILL))
       print("wait result: ", WaitPID.wait(pid: pid))
-      try? SystemFileManager.remove(genInstanceWorkDir(instance: instanceID)).get()
+      if removeFiles {
+        try? SystemFileManager.remove(genInstanceWorkDir(instance: instanceID)).get()
+      }
     }
 
     for instanceID in removedInstances {
-      kill(instanceID: instanceID)
+      kill(instanceID: instanceID, removeFiles: true)
     }
 
     for instanceID in addedInstances {
@@ -376,7 +378,7 @@ actor Manager {
 
         print("RESTART CLASH \(newInstancesConfigMap[instanceID]!.0.name)")
         // reload or restart process
-        kill(instanceID: instanceID)
+        kill(instanceID: instanceID, removeFiles: false)
         do {
           try prepareClash(instance: instanceID, firstTime: true)
         } catch {

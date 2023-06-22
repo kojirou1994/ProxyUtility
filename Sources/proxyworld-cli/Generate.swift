@@ -88,7 +88,7 @@ struct Generate: AsyncParsableCommand {
 
   func run() async throws {
 
-    let manager = try Manager(workDir: defaultWorkDir(), configPath: configPath, loadDaemonStats: false, networkOptions: networkOptions.toInternal, options: options.toInternal())
+    let manager = try Manager(workDir: defaultWorkDir(), clashPath: nil, configPath: configPath, loadDaemonStats: false, networkOptions: networkOptions.toInternal, options: options.toInternal())
 
     if networkOptions.skipFirstRefresh {
       _ = try await manager.updateCaches()

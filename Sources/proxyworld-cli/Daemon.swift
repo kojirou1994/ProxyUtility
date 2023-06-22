@@ -125,6 +125,7 @@ actor Manager {
 
   nonisolated
   public let workDir: FilePath
+  private let clashPath: String?
   private let configPath: FilePath
 
   private var config: ProxyWorldConfiguration
@@ -175,8 +176,9 @@ actor Manager {
   /// encoder for cache/stats
   nonisolated private let cacheEncoder: JSONEncoder
 
-  public init(workDir: FilePath, configPath: FilePath, loadDaemonStats: Bool, networkOptions: NetworkOptions, options: ProxyWorldConfiguration.GenerateOptions) throws {
+  public init(workDir: FilePath, clashPath: FilePath?, configPath: FilePath, loadDaemonStats: Bool, networkOptions: NetworkOptions, options: ProxyWorldConfiguration.GenerateOptions) throws {
     self.workDir = workDir
+    self.clashPath = clashPath?.string
     self.configPath = configPath
     self.networkOptions = networkOptions
     self.options = options
@@ -334,7 +336,7 @@ actor Manager {
       try encoded.write(toFile: configPath, atomically: true, encoding: .utf8)
 
       let exe = Clash(configurationDirectory: instanceDir.string, configurationFile: configPath)
-      var command = Command(executable: "clash", arguments: exe.arguments)
+      var command = Command(executable: clashPath ?? "clash", arguments: exe.arguments)
       command.defaultIO = .null
       command.stdout = .inherit
 
@@ -495,6 +497,9 @@ struct Daemon: AsyncParsableCommand {
   @OptionGroup(title: "NETWORK")
   var networkOptions: NetworkOptions
 
+  @Option
+  var clashPath: FilePath?
+
   @Argument
   var configPath: FilePath
 
@@ -517,7 +522,7 @@ struct Daemon: AsyncParsableCommand {
     }
     defer { _ = FileSyscalls.unlock(lockFile) }
 
-    let manager = try Manager(workDir: workDir, configPath: configPath, loadDaemonStats: true, networkOptions: networkOptions.toInternal, options: options.toInternal())
+    let manager = try Manager(workDir: workDir, clashPath: clashPath, configPath: configPath, loadDaemonStats: true, networkOptions: networkOptions.toInternal, options: options.toInternal())
 
     try await manager.cleanUnmanagedProcesses()
 

@@ -47,7 +47,7 @@ private func _genInstanceWorkDir(workDir: FilePath, instance: UUID) -> FilePath 
 }
 
 struct DaemonStats {
-  private var runningClash: [UUID: WaitPID.PID]
+  private var runningClash: [UUID: ProcessID]
   internal private(set) var generetedClash: [UUID: ClashConfig]
   internal private(set) var instanceIDs: Set<UUID>
 
@@ -58,8 +58,8 @@ struct DaemonStats {
   }
 
   init(instanceRootPath: FilePath, dataPath: FilePath, decoder: JSONDecoder) throws {
-    runningClash = try decoder.decode([UUID: WaitPID.PID.RawValue].self, from: SystemFileManager.contents(ofFile: dataPath))
-      .mapValues { WaitPID.PID(rawValue: $0) }
+    runningClash = try decoder.decode([UUID: ProcessID.RawValue].self, from: SystemFileManager.contents(ofFile: dataPath))
+      .mapValues { ProcessID(rawValue: $0) }
     instanceIDs = .init(runningClash.keys)
     generetedClash = .init()
     let configDecoder = YAMLDecoder()
@@ -75,13 +75,13 @@ struct DaemonStats {
     }
   }
 
-  mutating func add(instancdID: UUID, pid: WaitPID.PID, config: ClashConfig) {
+  mutating func add(instancdID: UUID, pid: ProcessID, config: ClashConfig) {
     runningClash[instancdID] = pid
     generetedClash[instancdID] = config
     precondition(instanceIDs.insert(instancdID).inserted)
   }
 
-  mutating func remove(instancdID: UUID) -> WaitPID.PID {
+  mutating func remove(instancdID: UUID) -> ProcessID {
     let pid = runningClash.removeValue(forKey: instancdID)!
     generetedClash[instancdID] = nil
     precondition(instanceIDs.remove(instancdID) != nil)
@@ -349,8 +349,8 @@ actor Manager {
     func kill(instanceID: UUID, removeFiles: Bool) {
       let pid = daemonStats.remove(instancdID: instanceID)
       // kill pid, remove files
-      print("kill \(pid.rawValue):", pid.send(signal: SIGKILL))
-      print("wait result: ", WaitPID.wait(pid: pid))
+      print("kill \(pid.rawValue):", Signal.kill.send(to: .processID(pid)))
+      print("wait result: ", WaitPID.wait(.processID(pid)))
       if removeFiles {
         try? SystemFileManager.remove(genInstanceWorkDir(instance: instanceID)).get()
       }

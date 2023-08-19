@@ -165,6 +165,7 @@ extension ProxyWorldConfiguration {
     public var httpPort: Int?
     public var socksPort: Int?
     public var mixedPort: Int?
+    public var inbounds: ClashConfig.Inbounds?
     public var apiPort: Int
     public var apiBindAddress: String?
     public var interfaceName: String?
@@ -436,6 +437,7 @@ extension ProxyWorldConfiguration {
       config.socksPort = instance.normal.socksPort
       config.httpPort = instance.normal.httpPort
       config.mixedPort = instance.normal.mixedPort
+      config.inbounds = instance.normal.inbounds
       if instance.dns.enable == true {
         config.dns = instance.dns
       }

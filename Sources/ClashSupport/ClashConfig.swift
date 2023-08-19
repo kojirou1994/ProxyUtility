@@ -1,4 +1,4 @@
-import Foundation
+import TwoCase
 
 public struct ClashConfig: Codable, Equatable {
 
@@ -7,6 +7,7 @@ public struct ClashConfig: Codable, Equatable {
   public var redirPort: Int?
   public var tproxyPort: Int?
   public var mixedPort: Int?
+  public var inbounds: Inbounds?
 
   public var authentication: [Authentication]?
 
@@ -347,6 +348,31 @@ extension ClashConfig {
       case storeSelected = "store-selected"
       case storeFakeIP = "store-fake-ip"
       case tracing
+    }
+  }
+
+  public typealias Inbounds = [TwoCase<Inbound, String>]
+
+  public struct Inbound: Codable, Equatable {
+    public init(type: InboundType, bindAddress: String) {
+      self.type = type
+      self.bindAddress = bindAddress
+    }
+
+    public var type: InboundType
+    public var bindAddress: String
+
+    private enum CodingKeys: String, CodingKey {
+      case type
+      case bindAddress = "bind-address"
+    }
+
+    public enum InboundType: String, Codable, CaseIterable, Equatable {
+      case socks
+      case redir
+      case tproxy
+      case http
+      case mixed
     }
   }
 }

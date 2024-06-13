@@ -166,14 +166,9 @@ extension ClashProxy {
 
 extension ClashProxy.VMess {
   public init(_ vmess: VMess) {
-    fatalError("wrong conversion")
-    name = vmess.id
-    server = vmess.server
-    port = vmess.port.value
-    uuid = vmess.uuid
-    alterId = vmess.aid.value
-    cipher = .auto
-    udp = true
+#warning("wrong conversion")
+    self.init(name: vmess.id, server: vmess.server, port: vmess.port.value, uuid: vmess.uuid, alterId: vmess.aid.value, cipher: .auto,
+                  udp: true)
     tls = vmess.tls == "tls"
     network = Network(rawValue: vmess.net)
     wsOptions = .init(path: vmess.path, headers: .init(host: vmess.host))
@@ -182,7 +177,7 @@ extension ClashProxy.VMess {
 
 extension VMess {
   public init(_ vmess: ClashProxy.VMess) {
-    fatalError("wrong conversion")
+    #warning("wrong conversion")
     self.init(version: 2, id: vmess.name, server: vmess.server, port: .init(vmess.port),
               uuid: vmess.uuid, aid: .init(vmess.alterId), net: "ws", type: "",
               host: vmess.wsOptions?.headers?.host ?? "itunes.com", path: vmess.wsOptions?.path ?? "", tls: vmess.tls == true ? "tls" : "")

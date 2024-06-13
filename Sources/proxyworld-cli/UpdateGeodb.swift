@@ -31,7 +31,7 @@ struct UpdateGeodb: AsyncParsableCommand {
     let emptyConfig = """
     mode: direct
     """
-    let (fd, path) = try TempFilename.create(template: template.string).get()
+    let (fd, path) = try SystemCall.createTemporaryFile(template: template.string).get()
     try fd.closeAfter {
       _ = try fd.writeAll(emptyConfig.utf8)
     }

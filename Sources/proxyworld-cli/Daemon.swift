@@ -13,9 +13,6 @@ import SystemPackage
 import SystemUp
 import SystemFileManager
 import Command
-#if os(macOS)
-import Proc
-#endif
 import AsyncHTTPClient
 import ProxyInfo
 import AsyncHTTPClientProxy
@@ -100,7 +97,7 @@ struct DaemonStats {
       // TODO: better detection
       let path: FilePath
       #if os(macOS)
-      path = try PIDInfo.path(pid: pid.rawValue)
+      path = try Proc.path(pid: pid)
       #elseif os(Linux)
       let full = try Data(contentsOf: URL(fileURLWithPath: "/proc/\(pid)/cmdline"))
       if full.isEmpty {
@@ -194,9 +191,9 @@ actor Manager {
       var proxyHTTP: HTTPClient?
       if !proxyEnv.isEmpty {
         print("http client proxy enabled")
-        proxyHTTP = .init(eventLoopGroupProvider: .createNew, configuration: .init(proxy: .environment(proxyEnv)))
+        proxyHTTP = .init(eventLoopGroupProvider: .singleton, configuration: .init(proxy: .environment(proxyEnv)))
       }
-      let directHTTP = HTTPClient(eventLoopGroupProvider: .createNew)
+      let directHTTP = HTTPClient(eventLoopGroupProvider: .singleton)
       self.http = .init(proxy: proxyHTTP, direct: directHTTP)
     }
     config = try _readConfig(configPath: configPath)

@@ -131,7 +131,7 @@ actor Manager {
   private let networkOptions: NetworkOptions
   public var options: ProxyWorldConfiguration.GenerateOptions
 
-  struct HTTPClients {
+  struct HTTPClients: ~Copyable {
     internal init(proxy: HTTPClient?, direct: HTTPClient) {
       self.proxy = proxy
       self.direct = direct
@@ -142,6 +142,11 @@ actor Manager {
     let direct: HTTPClient
 
     let clients: [HTTPClient]
+
+    deinit {
+      try? direct.syncShutdown()
+      try? proxy?.syncShutdown()
+    }
   }
 
   public struct NetworkOptions {
@@ -187,7 +192,7 @@ actor Manager {
     configEncoder.options.allowUnicode = true
     configEncoder.options.sortKeys = true
     do {
-      let proxyEnv = ProxyEnvironment( environment: PosixEnvironment.global.environment, parseUppercaseKey: true)
+      let proxyEnv = ProxyEnvironment(environment: PosixEnvironment.global.environment, parseUppercaseKey: true)
       var proxyHTTP: HTTPClient?
       if !proxyEnv.isEmpty {
         print("http client proxy enabled")
@@ -220,11 +225,6 @@ actor Manager {
       proxySubscriptionCache = .init()
     }
     self.statsPath = statsPath
-  }
-
-  deinit {
-    try? http.direct.syncShutdown()
-    try? http.proxy?.syncShutdown()
   }
 
   struct ReloadResult {
@@ -465,7 +465,8 @@ actor Manager {
   }
 
   public func terminateCLI() {
-    exit(1)
+    print(#function)
+    exit(0)
   }
 
   public struct InstanceStatus {
@@ -545,12 +546,12 @@ struct Daemon: AsyncParsableCommand {
       Task.detached {
         await Daemon.manager?.terminateCLI()
       }
-    }), for: [.kill, .terminate, .interrupt])
+    }), for: [.terminate, .interrupt])
 
     try await manager.cleanUnmanagedProcesses()
 
     if let reloadInterval {
-      Task {
+      Task(priority: .background) {
         let reloadInterval = Duration.seconds(reloadInterval)
         while true {
           try await Task.sleep(for: reloadInterval)
@@ -571,7 +572,7 @@ struct Daemon: AsyncParsableCommand {
     }
 
     if let reportInterval {
-      Task {
+      Task(priority: .background) {
         let reportInterval = Duration.seconds(reportInterval)
         while true {
           try await Task.sleep(for: reportInterval)

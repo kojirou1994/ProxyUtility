@@ -465,7 +465,17 @@ actor Manager {
   }
 
   public func terminateCLI() {
-    exit(0)
+    exit(1)
+  }
+
+  public struct InstanceStatus {
+    let instanceID: UUID
+    let running: Bool
+  }
+
+  public func reportInstances() -> [InstanceStatus] {
+    daemonStats.instanceIDs
+      .map { .init(instanceID: $0, running: daemonStats.checkProcessRunning(id: $0)) }
   }
 }
 
@@ -488,6 +498,9 @@ struct Daemon: AsyncParsableCommand {
 
   @Option(help: "Reload config by interval if provided")
   var reloadInterval: Int?
+
+  @Option(help: "Report instances status by interval if provided")
+  var reportInterval: Int?
 
   @Option(help: "Refresh interval for subscription/rule")
   var refreshInterval: Int = 600
@@ -555,6 +568,22 @@ struct Daemon: AsyncParsableCommand {
       }
     } else {
       print("reload disabled")
+    }
+
+    if let reportInterval {
+      Task {
+        let reportInterval = Duration.seconds(reportInterval)
+        while true {
+          try await Task.sleep(for: reportInterval)
+          let stats = await manager.reportInstances()
+          print("status report:")
+          for stat in stats {
+            print("id: \(stat.instanceID), running: \(stat.running)")
+          }
+        }
+      }
+    } else {
+      print("report disabled")
     }
 
     // first time

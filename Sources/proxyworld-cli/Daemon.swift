@@ -463,6 +463,10 @@ actor Manager {
   public func generateClashConfigs(baseConfig: ClashConfig) -> [(ProxyWorldConfiguration.InstanceConfig, ClashConfig)] {
     config.generateClashConfigs(baseConfig: baseConfig, ruleSubscriptionCache: ruleSubscriptionCache, proxySubscriptionCache: proxySubscriptionCache, options: options)
   }
+
+  public func terminateCLI() {
+    exit(0)
+  }
 }
 
 func defaultWorkDir() throws -> FilePath {
@@ -500,6 +504,8 @@ struct Daemon: AsyncParsableCommand {
   @Argument
   var configPath: FilePath
 
+  static var manager: Manager?
+
   func run() async throws {
     let workDir = try workDir ?? defaultWorkDir()
 
@@ -520,6 +526,13 @@ struct Daemon: AsyncParsableCommand {
     defer { _ = FileSyscalls.unlock(lockFile) }
 
     let manager = try Manager(workDir: workDir, clashPath: clashPath, configPath: configPath, loadDaemonStats: true, networkOptions: networkOptions.toInternal, options: options.toInternal())
+    Self.manager = manager
+
+    Signal.set(handler: .custom({ signal in
+      Task.detached {
+        await Daemon.manager?.terminateCLI()
+      }
+    }), for: [.kill, .terminate, .interrupt])
 
     try await manager.cleanUnmanagedProcesses()
 

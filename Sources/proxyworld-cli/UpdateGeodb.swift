@@ -21,9 +21,9 @@ struct UpdateGeodb: AsyncParsableCommand {
     let configurationDirectory = try directory ?? defaultClashConfigDir()
     let dbFilePath = try defaultGeoDBPath(rootPath: configurationDirectory)
     print("Dest MMDB path: \(dbFilePath)")
-    if SystemFileManager.fileExists(atPath: .absolute(dbFilePath)) {
+    if SystemFileManager.fileExists(atPath: dbFilePath) {
       print("Remove old MMDB file")
-      try FileSyscalls.unlink(.absolute(dbFilePath)).get()
+      try SystemCall.unlink(dbFilePath).get()
     }
     let rootTemp: FilePath = .init(PosixEnvironment.get(key: "TMPDIR") ?? "/tmp")
     let template = rootTemp.appending("temp.XXXXXX")
@@ -45,8 +45,7 @@ struct UpdateGeodb: AsyncParsableCommand {
       print("Clash exit status:", try! process.wait())
     }
 
-    let stream = try FileStream.open(process.pipes.takeStdOut().unwrap("process's stdout is not set properly").local, mode: .read()).get()
-    defer { _ = stream.close() }
+    let stream = try FileStream.open(process.pipes.takeStdOut().unwrap("process's stdout is not set properly").local, mode: .read())
     try withUnsafeTemporaryAllocation(of: CChar.self, capacity: 4096) { buffer in
       guard stream.getLine(into: buffer) else {
         throw UpdateError.readClashOutput
@@ -60,7 +59,7 @@ struct UpdateGeodb: AsyncParsableCommand {
         let line2 = String(cString: buffer.baseAddress!)
         if line2.contains("test is successful") {
           print("Download finished")
-          if SystemFileManager.fileExists(atPath: .absolute(dbFilePath)) {
+          if SystemFileManager.fileExists(atPath: dbFilePath) {
             print("I'm sure MMDB is there")
           }
         } else if line2.contains("can't initial MMDB") {

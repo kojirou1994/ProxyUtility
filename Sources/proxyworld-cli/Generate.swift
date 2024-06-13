@@ -11,7 +11,7 @@ import QuantumultSupport
 import Precondition
 import SystemPackage
 import SystemUp
-import TSCExecutableLauncher
+import PosixExecutableLauncher
 
 enum ConfigFormat: String, ExpressibleByArgument, CaseIterable {
   case clash
@@ -136,11 +136,11 @@ struct Generate: AsyncParsableCommand {
         if test {
           print("Test config...")
           try Clash(configurationFile: outputPath.string, test: true)
-            .launch(use: TSCExecutableLauncher(outputRedirection: .none), options: .init(checkNonZeroExitCode: false))
+            .launch(use: .posix, options: .init(checkNonZeroExitCode: false))
         }
       } catch {
         print("Write failed: \(error)")
-        _ = FileSyscalls.unlink(.absolute(outputPath))
+        _ = SystemCall.unlink(outputPath)
       }
 
       print()

@@ -131,17 +131,17 @@ actor Manager {
   private let networkOptions: NetworkOptions
   public var options: ProxyWorldConfiguration.GenerateOptions
 
-  struct HTTPClients: ~Copyable {
+  internal struct HTTPClients: ~Copyable {
     internal init(proxy: HTTPClient?, direct: HTTPClient) {
       self.proxy = proxy
       self.direct = direct
       clients = [proxy, direct].compactMap { $0 }
     }
 
-    let proxy: HTTPClient?
-    let direct: HTTPClient
+    private let proxy: HTTPClient?
+    private let direct: HTTPClient
 
-    let clients: [HTTPClient]
+    internal let clients: [HTTPClient]
 
     deinit {
       try? direct.syncShutdown()
@@ -205,7 +205,7 @@ actor Manager {
 
     let decoder = JSONDecoder()
     let statsPath = workDir.appending("stats.json")
-    if loadDaemonStats, SystemFileManager.fileExists(atPath: .absolute(statsPath)) {
+    if loadDaemonStats, SystemFileManager.fileExists(atPath: statsPath) {
       let instanceRootDir = workDir.appending("instances")
       print("load daemon stats")
       daemonStats = try .init(instanceRootPath: instanceRootDir, dataPath: statsPath, decoder: decoder)
@@ -275,7 +275,7 @@ actor Manager {
 
   private var daemonStats: DaemonStats = .init()
 
-  public func cleanUnmanagedProcesses() throws {
+  public func cleanVanishedInstances() throws {
     for id in daemonStats.instanceIDs {
       if !daemonStats.checkProcessRunning(id: id) {
         print("\(id) not running!")
@@ -320,11 +320,11 @@ actor Manager {
 
     func prepareClash(instance: UUID, firstTime: Bool) throws {
       let instanceDir = genInstanceWorkDir(instance: instance)
-      try SystemFileManager.createDirectoryIntermediately(.absolute(instanceDir))
+      try SystemFileManager.createDirectoryIntermediately(instanceDir)
       if firstTime {
         let fakeDBPath = instanceDir.appending("Country.mmdb")
-        if !SystemFileManager.fileExists(atPath: .absolute(fakeDBPath)) {
-          try FileSyscalls.createSymbolicLink(.absolute(fakeDBPath), toDestination: geoDBPath).get()
+        if !SystemFileManager.fileExists(atPath: fakeDBPath) {
+          try SystemCall.createSymbolicLink(fakeDBPath, toDestination: geoDBPath).get()
         }
       }
       let configPath = instanceDir.appending("config.yaml").string
@@ -523,7 +523,7 @@ struct Daemon: AsyncParsableCommand {
   func run() async throws {
     let workDir = try workDir ?? defaultWorkDir()
 
-    try SystemFileManager.createDirectoryIntermediately(.absolute(workDir))
+    try SystemFileManager.createDirectoryIntermediately(workDir)
 
     let lockFilePath = workDir.appending(".lock")
     let lockFile = try FileDescriptor.open(lockFilePath, .readOnly, options: [.create, .truncate], permissions: .fileDefault)
@@ -532,12 +532,12 @@ struct Daemon: AsyncParsableCommand {
     }
 
     do {
-      try FileSyscalls.lock(lockFile, flags: [.exclusive, .noBlock]).get()
+      try SystemCall.lock(lockFile, flags: [.exclusive, .noBlock]).get()
     } catch {
       print("another daemon for this work directory (\(workDir) is already running!")
       throw ExitCode(1)
     }
-    defer { _ = FileSyscalls.unlock(lockFile) }
+    defer { _ = SystemCall.unlock(lockFile) }
 
     let manager = try Manager(workDir: workDir, clashPath: clashPath, configPath: configPath, loadDaemonStats: true, networkOptions: networkOptions.toInternal, options: options.toInternal())
     Self.manager = manager
@@ -548,7 +548,7 @@ struct Daemon: AsyncParsableCommand {
       }
     }), for: [.terminate, .interrupt])
 
-    try await manager.cleanUnmanagedProcesses()
+    try await manager.cleanVanishedInstances()
 
     if let reloadInterval {
       Task(priority: .background) {

@@ -113,14 +113,17 @@ extension ClashConfig {
 
     public var providers: [String]?
 
-    public enum ProxyGroupType: String, Codable, CaseIterable {
+    public enum ProxyGroupType: String, Codable, CaseIterable, Identifiable {
       case select
       case urlTest = "url-test"
       case fallback
       case loadBalance = "load-balance"
       case relay
       case tolerance, lazy
+
+      public var id: Self { self }
     }
+
     public enum Strategy: String, Codable, CaseIterable {
       case consistentHashing = "consistent-hashing"
       case roundRobin = "round-robin"

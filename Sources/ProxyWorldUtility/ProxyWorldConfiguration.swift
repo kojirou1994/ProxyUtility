@@ -63,10 +63,6 @@ public enum PolicySwitchCutMethod: String, Codable, Equatable, CaseIterable, Ide
   }
 }
 
-extension ClashConfig.ProxyGroup.ProxyGroupType: Identifiable {
-  public var id: Self { self }
-}
-
 public struct ProxyNodeSubscription: Identifiable, Codable, Equatable, Hashable {
   public let id: UUID
   public var name: String

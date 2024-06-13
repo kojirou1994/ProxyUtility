@@ -5,7 +5,6 @@ import ArgumentParser
 import Precondition
 import SystemPackage
 import SystemUp
-import TSCExecutableLauncher
 import SystemFileManager
 import Command
 

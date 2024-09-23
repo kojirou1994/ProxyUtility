@@ -39,7 +39,7 @@ public struct Obfs: ShadowsocksPluginProtocol, Equatable, Codable {
     self.launchMode = type
   }
 
-  public enum Mode: String, Codable {
+  public enum Mode: String, Codable, Sendable {
     case http
     case tls
   }

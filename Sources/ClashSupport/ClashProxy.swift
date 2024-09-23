@@ -1,6 +1,6 @@
 import Foundation
 
-public enum ClashProxy: Codable, Equatable {
+public enum ClashProxy: Codable, Equatable, Sendable {
 
   case shadowsocks(Shadowsocks)
   case socks5(Socks5)
@@ -10,7 +10,7 @@ public enum ClashProxy: Codable, Equatable {
   case trojan(Trojan)
   case ssr(ShadowsocksR)
 
-  public enum ProxyType: String, Codable, CaseIterable, Equatable, Identifiable {
+  public enum ProxyType: String, Codable, CaseIterable, Equatable, Identifiable, Sendable {
     case ss
     case vmess
     case socks5

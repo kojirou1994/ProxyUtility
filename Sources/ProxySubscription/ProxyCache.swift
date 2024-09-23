@@ -93,6 +93,7 @@ public enum ProxySubscriptionType: String, Codable, CaseIterable, Identifiable {
   case clash
 
   private static let jsonDecoder = JSONDecoder()
+  nonisolated(unsafe)
   private static let yamlDecoder = YAMLDecoder()
 
   public var id: Self { self }
@@ -139,7 +140,7 @@ public enum ProxySubscriptionType: String, Codable, CaseIterable, Identifiable {
   }
 }
 
-public final class ProxySubscriptionCache: ProxyProvidable {
+public final class ProxySubscriptionCache: ProxyProvidable, @unchecked Sendable {
   public let configuration: ProxySubscriptionConfiguration
   public let cachePath: URL
   public let mmdb: MaxMindDB?

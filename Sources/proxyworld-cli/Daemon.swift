@@ -120,7 +120,6 @@ struct ClashProcessInfo {
 
 actor Manager {
 
-  nonisolated
   public let workDir: FilePath
   private let clashPath: String?
   private let configPath: FilePath
@@ -173,7 +172,7 @@ actor Manager {
   nonisolated private let ruleSubCachePath: FilePath
   nonisolated private let proxySubCachePath: FilePath
   nonisolated private let statsPath: FilePath
-  nonisolated public let configEncoder: YAMLEncoder
+  private let configEncoder: YAMLEncoder
 
   /// encoder for cache/stats
   nonisolated private let cacheEncoder: JSONEncoder
@@ -349,7 +348,7 @@ actor Manager {
       print("kill \(pid.rawValue):", Signal.kill.send(to: .processID(pid)))
       print("wait result: ", WaitPID.wait(.processID(pid)))
       if removeFiles {
-        try? SystemFileManager.remove(genInstanceWorkDir(instance: instanceID)).get()
+        try? SystemFileManager.remove(genInstanceWorkDir(instance: instanceID))
       }
     }
 
@@ -478,6 +477,10 @@ actor Manager {
     daemonStats.instanceIDs
       .map { .init(instanceID: $0, running: daemonStats.checkProcessRunning(id: $0)) }
   }
+
+  public func encodeYAML(_ config: ClashConfig) throws -> String {
+    try configEncoder.encode(config)
+  }
 }
 
 func defaultWorkDir() throws -> FilePath {
@@ -491,6 +494,8 @@ func defaultClashConfigDir() throws -> FilePath {
 func defaultGeoDBPath(rootPath: FilePath? = nil) throws -> FilePath {
   try (rootPath ?? defaultClashConfigDir()).appending("Country.mmdb")
 }
+
+extension FilePath: @retroactive @unchecked Sendable {}
 
 struct Daemon: AsyncParsableCommand {
 
@@ -518,6 +523,7 @@ struct Daemon: AsyncParsableCommand {
   @Argument
   var configPath: FilePath
 
+  nonisolated(unsafe)
   static var manager: Manager?
 
   func run() async throws {

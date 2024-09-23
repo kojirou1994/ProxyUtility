@@ -1,4 +1,4 @@
-public enum ShadowsocksEnryptMethod: String, Codable, CaseIterable, CustomStringConvertible, Equatable, Identifiable {
+public enum ShadowsocksEnryptMethod: String, Codable, CaseIterable, CustomStringConvertible, Equatable, Identifiable, Sendable {
   case rc4_md5 = "rc4-md5"
   case aes_128_gcm = "aes-128-gcm"
   case aes_192_gcm = "aes-192-gcm"

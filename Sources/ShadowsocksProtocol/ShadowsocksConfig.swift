@@ -163,7 +163,7 @@ public struct ShadowsocksRConfig: ShadowsocksProtocol, Codable, Equatable {
     return ["-c", configPath, "-u"]
   }
 
-  public enum Obfs: String, Codable, CaseIterable, Identifiable, CustomStringConvertible {
+  public enum Obfs: String, Codable, CaseIterable, Identifiable, CustomStringConvertible, Sendable {
     case plain
     case http_simple
     case http_post
@@ -176,7 +176,7 @@ public struct ShadowsocksRConfig: ShadowsocksProtocol, Codable, Equatable {
     public var description: String { rawValue }
   }
 
-  public enum Protocols: String, Codable, CaseIterable, Identifiable, CustomStringConvertible {
+  public enum Protocols: String, Codable, CaseIterable, Identifiable, CustomStringConvertible, Sendable {
     case origin
     case auth_sha1_v4
     case auth_aes128_md5

@@ -1,5 +1,5 @@
 extension ClashProxy {
-  public struct VMess: Codable, Equatable, ClashUDPFeature, ClashTLSFeature {
+  public struct VMess: Codable, Equatable, ClashUDPFeature, ClashTLSFeature, Sendable {
 
     public var name: String
     public let type: ProxyType = .vmess
@@ -106,7 +106,7 @@ extension ClashProxy {
 
 extension ClashProxy.VMess {
 
-  public enum Cipher: String, Codable, CaseIterable, Equatable, CustomStringConvertible {
+  public enum Cipher: String, Codable, CaseIterable, Equatable, CustomStringConvertible, Sendable {
     case auto
     case aes_128_gcm = "aes-128-gcm"
     case chacha20_poly1305 = "chacha20-poly1305"
@@ -115,7 +115,7 @@ extension ClashProxy.VMess {
     public var description: String { rawValue }
   }
 
-  public enum Network: String, Codable, CustomStringConvertible {
+  public enum Network: String, Codable, CustomStringConvertible, Sendable {
     case ws
     case h2
     case http
@@ -124,7 +124,7 @@ extension ClashProxy.VMess {
     public var description: String { rawValue }
   }
 
-  public struct WsOptions: Codable, Equatable {
+  public struct WsOptions: Codable, Equatable, Sendable {
     public init(path: String? = nil, headers: ClashProxy.VMess.WsHeaders? = nil, maxEarlyData: Int? = nil, earlyDataHeaderName: String? = nil) {
       self.path = path
       self.headers = headers
@@ -144,25 +144,25 @@ extension ClashProxy.VMess {
     }
   }
 
-  public struct H2Options: Codable, Equatable {
+  public struct H2Options: Codable, Equatable, Sendable {
     public var host: [String]
     public var path: String
   }
 
-  public struct HttpOptions: Codable, Equatable {
+  public struct HttpOptions: Codable, Equatable, Sendable {
     public var method: String?
     public var path: [String]?
     public var headers: [String: [String]]?
   }
 
-  public struct GrpcOptions: Codable, Equatable {
+  public struct GrpcOptions: Codable, Equatable, Sendable {
     public var grpcServiceName: String
     private enum CodingKeys: String, CodingKey {
       case grpcServiceName = "grpc-service-name"
     }
   }
 
-  public struct WsHeaders: Codable, Equatable {
+  public struct WsHeaders: Codable, Equatable, Sendable {
     public init(host: String? = nil) {
       self.host = host
     }

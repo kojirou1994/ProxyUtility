@@ -1,5 +1,6 @@
 import ProxyRule
 
+nonisolated(unsafe)
 let nintendo = RuleProvider(
   name: "Nintendo", description: "Nintendo services.",
   collections: [
@@ -12,6 +13,7 @@ let nintendo = RuleProvider(
       ], recommendedPolicy: .select)
   ])
 
+nonisolated(unsafe)
 let privateTracker = RuleProvider(
   name: "Private Tracker", description: "Private trackers and websites.",
   collections: [
@@ -52,6 +54,7 @@ let privateTracker = RuleProvider(
 
  */
 
+nonisolated(unsafe)
 let lan = RuleProvider(
   name: "LAN", description: "Rules for local area network.",
   collections: [

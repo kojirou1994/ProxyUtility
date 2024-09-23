@@ -77,6 +77,7 @@ public enum RuleType: String, CustomStringConvertible, CaseIterable, Codable {
     }
   }
 
+  nonisolated(unsafe)
   public static let clashSupported = allCases.filter(\.supportsClash)
 
 }

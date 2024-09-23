@@ -119,7 +119,7 @@ struct Generate: AsyncParsableCommand {
         let outputString: String
         switch format {
         case .clash:
-          outputString = try manager.configEncoder.encode(clashConfig)
+          outputString = try await manager.encodeYAML(clashConfig)
         case .qx:
           outputString = clashConfig.quantumultXConfig
         case .qxServer:

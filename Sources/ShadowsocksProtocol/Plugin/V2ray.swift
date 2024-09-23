@@ -50,7 +50,7 @@ public struct V2ray: ShadowsocksPluginProtocol, Equatable, Codable {
     "v2ray-plugin"
   }
 
-  public enum Mode: String, Codable {
+  public enum Mode: String, Codable, Sendable {
     case websocket
     case quic
   }

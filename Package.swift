@@ -1,4 +1,4 @@
-// swift-tools-version: 5.7
+// swift-tools-version: 6.0
 
 import PackageDescription
 
@@ -26,7 +26,7 @@ let package = Package(
     .package(url: "https://github.com/kojirou1994/Executable.git", from: "0.7.0"),
     .package(url: "https://github.com/kojirou1994/SystemUp.git", from: "0.5.0"),
     .package(url: "https://github.com/kojirou1994/TwoCase.git", from: "0.1.0"),
-    .package(url: "https://github.com/jpsim/Yams.git", from: "3.0.0"),
+    .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
     .package(url: "https://github.com/swift-extras/swift-extras-base64.git", from: "0.7.0"),
     .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.3.0")),
     .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.0"),

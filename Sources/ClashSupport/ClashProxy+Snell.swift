@@ -1,7 +1,7 @@
 import ShadowsocksProtocol
 
 extension ClashProxy {
-  public struct Snell: Codable, Equatable {
+  public struct Snell: Codable, Equatable, Sendable {
     public var name: String
 
     public let type: ProxyType = .snell
@@ -24,7 +24,7 @@ extension ClashProxy {
       self.obfsOpts = obfsOpts
     }
 
-    public struct ObfsOpts: Codable, Equatable {
+    public struct ObfsOpts: Codable, Equatable, Sendable {
       public var mode: Obfs.Mode
       public var host: String
       public init(mode: Obfs.Mode, host: String) {

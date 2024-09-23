@@ -1,5 +1,5 @@
 extension ClashProxy {
-  public struct Trojan: Codable, Equatable, ClashUDPFeature {
+  public struct Trojan: Codable, Equatable, ClashUDPFeature, Sendable {
     public init(name: String, server: String, port: Int, password: String, udp: Bool? = nil, sni: String? = nil, alpn: [String]? = nil, skipCertVerify: Bool? = nil, network: ClashProxy.Trojan.Network? = nil, grpcOptions: ClashProxy.VMess.GrpcOptions? = nil, wsOptions: ClashProxy.VMess.WsOptions? = nil) {
       self.name = name
       self.server = server
@@ -27,7 +27,7 @@ extension ClashProxy {
     public var grpcOptions: VMess.GrpcOptions?
     public var wsOptions: VMess.WsOptions?
 
-    public enum Network: String, Codable {
+    public enum Network: String, Codable, Sendable {
       case grpc
       case ws
     }

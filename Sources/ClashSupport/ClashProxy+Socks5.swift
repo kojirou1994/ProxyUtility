@@ -1,5 +1,5 @@
 extension ClashProxy {
-  public struct Socks5: Codable, Equatable {
+  public struct Socks5: Codable, Equatable, Sendable {
     public var name: String
     public let type: ProxyType = .socks5
     public var server: String

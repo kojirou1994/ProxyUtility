@@ -1,6 +1,6 @@
 import TwoCase
 
-public struct ClashConfig: Codable, Equatable {
+public struct ClashConfig: Codable, Equatable, Sendable {
 
   public var httpPort: Int?
   public var socksPort: Int?
@@ -98,7 +98,7 @@ extension ClashConfig {
 
   public static let rejectPolicy = "REJECT"
 
-  public struct ProxyGroup: Codable, Equatable {
+  public struct ProxyGroup: Codable, Equatable, Sendable {
     public var name: String
     public let type: ProxyGroupType
     public var proxies: [String]
@@ -113,7 +113,7 @@ extension ClashConfig {
 
     public var providers: [String]?
 
-    public enum ProxyGroupType: String, Codable, CaseIterable, Identifiable {
+    public enum ProxyGroupType: String, Codable, CaseIterable, Identifiable, Sendable {
       case select
       case urlTest = "url-test"
       case fallback
@@ -124,7 +124,7 @@ extension ClashConfig {
       public var id: Self { self }
     }
 
-    public enum Strategy: String, Codable, CaseIterable {
+    public enum Strategy: String, Codable, CaseIterable, Sendable {
       case consistentHashing = "consistent-hashing"
       case roundRobin = "round-robin"
     }
@@ -167,7 +167,7 @@ extension ClashConfig {
 
   }
 
-  public struct Authentication: Codable, Equatable {
+  public struct Authentication: Codable, Equatable, Sendable {
 
     public var username: String
 
@@ -194,7 +194,7 @@ extension ClashConfig {
     }
   }
 
-  public struct ClashDNS: Codable, Equatable {
+  public struct ClashDNS: Codable, Equatable, Sendable {
 
     /// set true to enable dns
     public var enable: Bool?
@@ -221,12 +221,12 @@ extension ClashConfig {
       case useHosts = "use-hosts"
     }
 
-    public enum EnhanceMode: String, Codable {
+    public enum EnhanceMode: String, Codable, Sendable {
       case redirHost = "redir-host"
       case fakeIp = "fake-ip"
     }
 
-    public struct FallbackFilter: Codable, Equatable {
+    public struct FallbackFilter: Codable, Equatable, Sendable {
 
       public var geoip: Bool
       public var geoipCode: String
@@ -252,7 +252,7 @@ extension ClashConfig {
     }
   }
 
-  public struct ClashTun: Codable, Equatable {
+  public struct ClashTun: Codable, Equatable, Sendable {
     public let enable: Bool
     public var stack: TunStack?
     public var dnsHijack: [String]?
@@ -266,19 +266,19 @@ extension ClashConfig {
       case macOSAutoDetectInterface = "macOS-auto-detect-interface"
     }
 
-    public enum TunStack: String, Codable {
+    public enum TunStack: String, Codable, Sendable {
       case system
       case gvisor
     }
   }
 
-  public struct Script: Codable, Equatable {
+  public struct Script: Codable, Equatable, Sendable {
     public var code: String?
     public var shortcuts: [String: String]?
   }
 
-  public struct ProxyProvider: Codable, Equatable {
-    public enum ProviderType: String, Codable, Equatable {
+  public struct ProxyProvider: Codable, Equatable, Sendable {
+    public enum ProviderType: String, Codable, Equatable, Sendable {
       case http
       case file
     }
@@ -289,7 +289,7 @@ extension ClashConfig {
     public var interval: Int?
     public var healthCheck: HealthCheck
 
-    public struct HealthCheck: Codable, Equatable {
+    public struct HealthCheck: Codable, Equatable, Sendable {
       public var enable: Bool
       public var interval: Int
       public var lazy: Bool?
@@ -302,13 +302,13 @@ extension ClashConfig {
     }
   }
 
-  public struct RuleProvider: Codable, Equatable {
-    public enum Behavior: String, Codable, Equatable, CaseIterable {
+  public struct RuleProvider: Codable, Equatable, Sendable {
+    public enum Behavior: String, Codable, Equatable, CaseIterable, Sendable {
       case domain
       case ipcidr
       case classical
     }
-    public enum ProviderType: String, Codable, Equatable, CaseIterable {
+    public enum ProviderType: String, Codable, Equatable, CaseIterable, Sendable {
       case http
       case file
     }
@@ -321,7 +321,7 @@ extension ClashConfig {
 
   }
 
-  public enum Mode: String, Codable, CaseIterable, Equatable {
+  public enum Mode: String, Codable, CaseIterable, Equatable, Sendable {
     case rule
     case global
     case direct
@@ -329,7 +329,7 @@ extension ClashConfig {
     case script = "Script"
   }
 
-  public enum LogLevel: String, Codable, CaseIterable, Equatable {
+  public enum LogLevel: String, Codable, CaseIterable, Equatable, Sendable {
     case info
     case warning
     case error
@@ -337,7 +337,7 @@ extension ClashConfig {
     case silent
   }
 
-  public struct Profile: Codable, Equatable {
+  public struct Profile: Codable, Equatable, Sendable {
     public init(storeSelected: Bool = false, storeFakeIP: Bool = false) {
       self.storeSelected = storeSelected
       self.storeFakeIP = storeFakeIP
@@ -356,7 +356,7 @@ extension ClashConfig {
 
   public typealias Inbounds = [TwoCase<Inbound, String>]
 
-  public struct Inbound: Codable, Equatable {
+  public struct Inbound: Codable, Equatable, Sendable {
     public init(type: InboundType, bindAddress: String) {
       self.type = type
       self.bindAddress = bindAddress
@@ -370,7 +370,7 @@ extension ClashConfig {
       case bindAddress = "bind-address"
     }
 
-    public enum InboundType: String, Codable, CaseIterable, Equatable {
+    public enum InboundType: String, Codable, CaseIterable, Equatable, Sendable {
       case socks
       case redir
       case tproxy

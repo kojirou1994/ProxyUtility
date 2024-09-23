@@ -105,6 +105,7 @@ public class RuleManager {
 }
 
 extension Rule {
+  nonisolated(unsafe)
   public static let normalLanRules: [Rule] = [
     .init(.ipCIDR, "10.0.0.0/8", ""),
     .init(.ipCIDR, "100.64.0.0/10", ""),

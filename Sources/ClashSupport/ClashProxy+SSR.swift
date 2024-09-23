@@ -1,7 +1,7 @@
 import ShadowsocksProtocol
 
 extension ClashProxy {
-  public struct ShadowsocksR: Codable, Equatable, ClashUDPFeature {
+  public struct ShadowsocksR: Codable, Equatable, ClashUDPFeature, Sendable {
 
     public var name: String
     public let type: ProxyType = .ssr

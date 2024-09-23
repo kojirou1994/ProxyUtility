@@ -1,5 +1,6 @@
 import ProxyRule
 
+nonisolated(unsafe)
 fileprivate let appleICloud = RuleCollection(
   name: "iCloud", description: "Apple's iCloud service.",
   rules: [
@@ -10,6 +11,7 @@ fileprivate let appleICloud = RuleCollection(
     ])
   ], recommendedPolicy: .direct)
 
+nonisolated(unsafe)
 fileprivate let appleDeveloper = RuleCollection(
   name: "Developer", description: "Apple developer site, including streaming service.",
   rules: [
@@ -22,6 +24,7 @@ fileprivate let appleDeveloper = RuleCollection(
     ])
   ], recommendedPolicy: .select)
 
+nonisolated(unsafe)
 fileprivate let appleSoftware = RuleCollection(
   name: "Software Updates", description: "Software updates.",
   rules: [
@@ -33,6 +36,7 @@ fileprivate let appleSoftware = RuleCollection(
     ])
   ], recommendedPolicy: .select)
 
+nonisolated(unsafe)
 fileprivate let appleMusic = RuleCollection(
   name: "Music", description: "Apple Music streaming.",
   rules: [
@@ -43,6 +47,7 @@ fileprivate let appleMusic = RuleCollection(
     ])
   ], recommendedPolicy: .select)
 
+nonisolated(unsafe)
 fileprivate let appleTV = RuleCollection(
   name: "TV", description: "Apple TV Service.",
   rules: [
@@ -52,6 +57,7 @@ fileprivate let appleTV = RuleCollection(
   ], recommendedPolicy: .select)
 // mzstatic.com
 
+nonisolated(unsafe)
 fileprivate let appleMap = RuleCollection(
   name: "Map", description: "Apple Location/Map Service.",
   rules: [
@@ -61,6 +67,7 @@ fileprivate let appleMap = RuleCollection(
     ])
   ], recommendedPolicy: .direct)
 
+nonisolated(unsafe)
 fileprivate let appStore = RuleCollection(
   name: "App Store", description: "App Store.",
   rules: [
@@ -74,6 +81,7 @@ fileprivate let appStore = RuleCollection(
     ])
   ], recommendedPolicy: .select)
 
+nonisolated(unsafe)
 fileprivate let contentCaching = RuleCollection(
   name: "Content Caching", description: "",
   rules: [
@@ -83,6 +91,7 @@ fileprivate let contentCaching = RuleCollection(
     ]),
   ], recommendedPolicy: .direct)
 
+nonisolated(unsafe)
 fileprivate let blockedServices = RuleCollection(
   name: "Blocked", description: "Blocked apple services.",
   rules: [
@@ -103,6 +112,7 @@ fileprivate let blockedServices = RuleCollection(
     .init(.domain, "music.apple.com")
   ], recommendedPolicy: .select)
 
+nonisolated(unsafe)
 fileprivate let certificateValidation = RuleCollection(
   name: "Certificate", description: "Apple devices must be able to connect to the following hosts to validate digital certificates used by the hosts listed above.",
   rules: [
@@ -118,6 +128,7 @@ fileprivate let certificateValidation = RuleCollection(
     ]),
   ], recommendedPolicy: .proxy)
 
+nonisolated(unsafe)
 fileprivate let allAppleRoutes = RuleCollection(
   name: "Route", description: "The entire 17.0.0.0/8 address block is assigned to Apple.",
   rules: [
@@ -127,6 +138,7 @@ fileprivate let allAppleRoutes = RuleCollection(
     ]),
   ], recommendedPolicy: .direct)
 
+nonisolated(unsafe)
 let apple = RuleProvider(
   name: "Apple", description: "Apple services.",
   collections: [

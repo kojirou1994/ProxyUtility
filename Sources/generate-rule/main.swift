@@ -7,6 +7,7 @@ let dstDir = URL(fileURLWithPath: CommandLine.arguments[1])
 
 try FileManager.default.createDirectory(at: dstDir, withIntermediateDirectories: true, attributes: nil)
 
+nonisolated(unsafe)
 let encoder = YAMLEncoder()
 
 func write(ruleProvider: RuleProvider) throws {

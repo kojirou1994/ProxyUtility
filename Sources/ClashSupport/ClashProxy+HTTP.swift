@@ -1,5 +1,5 @@
 extension ClashProxy {
-  public struct HTTP: Codable, Equatable, ClashTLSFeature, ClashVerifyCertFeature {
+  public struct HTTP: Codable, Equatable, ClashTLSFeature, ClashVerifyCertFeature, Sendable {
     public var name: String
     public let type: ProxyType = .http
     public var server: String

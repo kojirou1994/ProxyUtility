@@ -3,6 +3,7 @@ import ProxyProtocol
 import URLFileManager
 
 public class TempConfigManager {
+  nonisolated(unsafe)
   public static let shared = TempConfigManager()
   
   static let tmpDir = URL(fileURLWithPath: ProcessInfo.processInfo.environment["TMPDIR"] ?? NSTemporaryDirectory()).appendingPathComponent("SSManger")

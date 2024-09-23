@@ -39,7 +39,7 @@ extension ClashVerifyCertFeature {
 }
 
 extension ClashProxy {
-  public struct Shadowsocks: Codable, Equatable, ClashUDPFeature {
+  public struct Shadowsocks: Codable, Equatable, ClashUDPFeature, Sendable {
     public init(cipher: ShadowsocksEnryptMethod, plugin: ClashProxy.Shadowsocks.PluginOptions? = nil, password: String, server: String, port: Int, name: String, udp: Bool? = nil) {
       self.cipher = cipher
       self.plugin = plugin
@@ -163,17 +163,17 @@ public typealias ObfsMode = Obfs.Mode
 public typealias V2rayMode = V2ray.Mode
 
 extension ClashProxy.Shadowsocks {
-  public enum PluginOptions: Codable, Equatable {
+  public enum PluginOptions: Codable, Equatable, Sendable {
     case obfs(Obfs)
 
     case v2ray(V2ray)
 
-    public struct Obfs: Codable, Equatable {
+    public struct Obfs: Codable, Equatable, Sendable {
       public var mode: ObfsMode
       public var host: String?
     }
 
-    public struct V2ray: Codable, Equatable {
+    public struct V2ray: Codable, Equatable, Sendable {
       public init(mode: V2rayMode, tls: Bool? = nil, skipCertVerify: Bool? = nil, host: String? = nil, path: String? = nil, mux: Bool? = nil, headers: [String : String]? = nil) {
         self.mode = mode
         self.tls = tls

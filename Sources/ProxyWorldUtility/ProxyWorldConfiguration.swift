@@ -103,7 +103,7 @@ extension ProxyWorldConfiguration {
     public let data: RuleCollection
   }
 
-  public struct InstanceConfig: Codable, Equatable {
+  public struct InstanceConfig: Codable, Equatable, Sendable {
     public let id: UUID
     public var name: String
     public var dns: ClashConfig.ClashDNS
@@ -121,7 +121,7 @@ extension ProxyWorldConfiguration {
     public var portBlacklist: [Int]
   }
 
-  public struct NormalConfiguration: Codable, Equatable {
+  public struct NormalConfiguration: Codable, Equatable, Sendable {
     public init(mainProxyName: String, userProxyGroupName: String?,
                 addDirectToMainProxy: Bool, finalDirect: Bool,
                 logLevel: ClashConfig.LogLevel, allowLan: Bool,

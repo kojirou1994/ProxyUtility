@@ -47,7 +47,7 @@ struct DaemonStats {
     for instanceID in instanceIDs {
       let configPath = instanceRootPath.appending(instanceID.uuidString).appending("config.yaml")
       do {
-        let clashConfig = try configDecoder.decode(ClashConfig.self, from: SystemFileManager.contents(ofFile: configPath))
+        let clashConfig = try configDecoder.decode(ClashConfig.self, from: SystemFileManager.contents(ofFile: configPath) as Data)
         generetedClash[instanceID] = clashConfig
       } catch {
         print("Cannot read clash config at \(configPath), skipped")

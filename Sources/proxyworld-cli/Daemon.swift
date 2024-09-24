@@ -39,7 +39,7 @@ struct DaemonStats {
   }
 
   init(instanceRootPath: FilePath, dataPath: FilePath, decoder: JSONDecoder) throws {
-    runningClash = try decoder.decode([UUID: ProcessID.RawValue].self, from: SystemFileManager.contents(ofFile: dataPath))
+    runningClash = try decoder.decode([UUID: ProcessID.RawValue].self, from: SystemFileManager.contents(ofFile: dataPath) as Data)
       .mapValues { ProcessID(rawValue: $0) }
     instanceIDs = .init(runningClash.keys)
     generetedClash = .init()

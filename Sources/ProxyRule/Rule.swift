@@ -82,7 +82,10 @@ public class RuleManager {
   public let finalPolicy: String
 
   private func readRules(_ filename: String) -> [Rule] {
-    (try? String.init(contentsOfFile: filename).components(separatedBy: .newlines).compactMap{ Rule.parse($0) }) ?? []
+    (try? String(contentsOfFile: filename, encoding: .utf8)
+      .components(separatedBy: .newlines)
+      .compactMap { Rule.parse($0) })
+    ?? []
   }
 
   public var selectPolicies: [String] {

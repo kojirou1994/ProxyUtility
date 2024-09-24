@@ -19,22 +19,6 @@ import AsyncHTTPClientProxy
 import NIO
 import NIOFoundationCompat
 
-extension SystemFileManager {
-  static func contents(ofFile path: FilePath) throws -> Data {
-    let fd = try FileDescriptor.open(path, .readOnly)
-    return try fd.closeAfter {
-      try SystemFileManager.contents(ofFileDescriptor: fd)
-    }
-  }
-
-  static func contents(ofFile path: FilePath) throws -> String {
-    let fd = try FileDescriptor.open(path, .readOnly)
-    return try fd.closeAfter {
-      try SystemFileManager.contents(ofFileDescriptor: fd)
-    }
-  }
-}
-
 private func _readConfig(configPath: FilePath) throws -> ProxyWorldConfiguration {
   try JSONDecoder().kwiftDecode(from: SystemFileManager.contents(ofFile: configPath) as Data, as: ProxyWorldConfiguration.self)
 }
@@ -212,13 +196,13 @@ actor Manager {
       daemonStats = .init()
     }
     do {
-      ruleSubscriptionCache = try decoder.kwiftDecode(from: SystemFileManager.contents(ofFile: ruleSubCachePath))
+      ruleSubscriptionCache = try decoder.kwiftDecode(from: SystemFileManager.contents(ofFile: ruleSubCachePath) as Data)
       print("rule sub cache loaded")
     } catch {
       ruleSubscriptionCache = .init()
     }
     do {
-      proxySubscriptionCache = try decoder.kwiftDecode(from: SystemFileManager.contents(ofFile: proxySubCachePath))
+      proxySubscriptionCache = try decoder.kwiftDecode(from: SystemFileManager.contents(ofFile: proxySubCachePath) as Data)
       print("proxy sub cache loaded")
     } catch {
       proxySubscriptionCache = .init()
